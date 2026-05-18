@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { PhotoSummary } from "@/types"
+import PeopleTagInput from "@/components/people/PeopleTagInput"
 
 type Props = {
   photo: PhotoSummary
@@ -32,8 +33,7 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
       .catch(() => {})
   }, [])
 
-  const addPerson = () => {
-    const name = peopleInput.trim()
+  const addPerson = (name: string) => {
     if (!name || peopleNames.includes(name)) return
     setPeopleNames((prev) => [...prev, name])
     setPeopleInput("")
@@ -180,25 +180,13 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
 
       <div>
         <label className="text-xs font-medium text-white/70 block mb-1">People</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={peopleInput}
-            onChange={(e) => setPeopleInput(e.target.value)}
-            onKeyDown={(e) =>
-              e.key === "Enter" && (e.preventDefault(), addPerson())
-            }
-            placeholder="Add a name, press Enter"
-            className="flex-1 px-3 py-2 text-sm rounded-lg bg-white/10 text-white placeholder-white/30 border border-white/20 outline-none focus:border-white/50"
-          />
-          <button
-            type="button"
-            onClick={addPerson}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors"
-          >
-            Add
-          </button>
-        </div>
+        <PeopleTagInput
+          peopleInput={peopleInput}
+          onChange={setPeopleInput}
+          onAdd={addPerson}
+          excludeNames={peopleNames}
+          variant="dark"
+        />
         {peopleNames.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {peopleNames.map((name) => (

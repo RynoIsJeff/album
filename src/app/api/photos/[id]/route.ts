@@ -68,5 +68,6 @@ function serialize(photo: any) {
     takenAt: photo.takenAt?.toISOString() ?? null,
     createdAt: photo.createdAt.toISOString(),
     updatedAt: photo.updatedAt?.toISOString() ?? null,
+    albumPosition: photo.albumPosition != null ? Number(photo.albumPosition) : null,
   }
 }

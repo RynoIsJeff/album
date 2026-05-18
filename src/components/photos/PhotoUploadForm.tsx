@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { upload } from "@vercel/blob/client"
+import PeopleTagInput from "@/components/people/PeopleTagInput"
 
 type UploadedFile = {
   file: File
@@ -140,9 +141,8 @@ export default function PhotoUploadForm() {
     setMetas((prev) => ({ ...prev, [fileName]: { ...prev[fileName], ...patch } }))
   }
 
-  const addPerson = (fileName: string) => {
+  const addPerson = (fileName: string, name: string) => {
     const meta = metas[fileName]
-    const name = meta.peopleInput.trim()
     if (!name || meta.peopleNames.includes(name)) return
     updateMeta(fileName, { peopleNames: [...meta.peopleNames, name], peopleInput: "" })
   }
@@ -390,25 +390,13 @@ export default function PhotoUploadForm() {
                 </div>
                 <div>
                   <label className="text-xs font-medium block mb-1">People</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={meta.peopleInput}
-                      onChange={(e) => updateMeta(uf.file.name, { peopleInput: e.target.value })}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPerson(uf.file.name))}
-                      placeholder="Type a name and press Enter"
-                      className="flex-1 px-3 py-2 text-sm rounded-lg border outline-none"
-                      style={{ borderColor: "var(--border)" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => addPerson(uf.file.name)}
-                      className="px-3 py-2 text-sm rounded-lg border transition-colors hover:border-stone-400"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      Add
-                    </button>
-                  </div>
+                  <PeopleTagInput
+                    peopleInput={meta.peopleInput}
+                    onChange={(val) => updateMeta(uf.file.name, { peopleInput: val })}
+                    onAdd={(name) => addPerson(uf.file.name, name)}
+                    excludeNames={meta.peopleNames}
+                    variant="light"
+                  />
                   {meta.peopleNames.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {meta.peopleNames.map((name) => (
