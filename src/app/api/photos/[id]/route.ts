@@ -20,6 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(session.user as any)?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { caption, takenAt, takenYear, albumId, peopleIds } = body
