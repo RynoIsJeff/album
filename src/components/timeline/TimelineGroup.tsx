@@ -5,9 +5,11 @@ type Props = {
   year: number
   photos: PhotoSummary[]
   onPhotoClick: (photo: PhotoSummary) => void
+  isAdmin?: boolean
+  onDelete?: (id: string) => void
 }
 
-export default function TimelineGroup({ year, photos, onPhotoClick }: Props) {
+export default function TimelineGroup({ year, photos, onPhotoClick, isAdmin, onDelete }: Props) {
   return (
     <section id={`year-${year}`} className="scroll-mt-20">
       <div className="flex items-center gap-4 mb-4">
@@ -19,7 +21,7 @@ export default function TimelineGroup({ year, photos, onPhotoClick }: Props) {
       </div>
       <div className="masonry-grid">
         {photos.map((photo) => (
-          <PhotoCard key={photo.id} photo={photo} onClick={onPhotoClick} />
+          <PhotoCard key={photo.id} photo={photo} onClick={onPhotoClick} isAdmin={isAdmin} onDelete={onDelete} />
         ))}
       </div>
     </section>

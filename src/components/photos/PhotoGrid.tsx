@@ -10,9 +10,10 @@ type Props = {
   initialPhotos: PhotoSummary[]
   nextCursor: string | null
   searchParams?: Record<string, string>
+  isAdmin?: boolean
 }
 
-export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, searchParams }: Props) {
+export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, searchParams, isAdmin }: Props) {
   const [photos, setPhotos] = useState<PhotoSummary[]>(initialPhotos)
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [loading, setLoading] = useState(false)
@@ -37,12 +38,26 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
     setLightboxIndex(idx)
   }, [photos])
 
+  const handleDelete = useCallback((id: string) => {
+    setPhotos((prev) => {
+      const next = prev.filter((p) => p.id !== id)
+      setLightboxIndex((li) => {
+        if (li === null) return null
+        const deletedIdx = prev.findIndex((p) => p.id === id)
+        if (deletedIdx < 0) return li
+        if (next.length === 0) return null
+        return Math.min(li, next.length - 1)
+      })
+      return next
+    })
+  }, [])
+
   return (
     <>
       <InfiniteScroller onLoadMore={loadMore} hasMore={!!cursor} isLoading={loading}>
         <div className="masonry-grid">
           {photos.map((photo) => (
-            <PhotoCard key={photo.id} photo={photo} onClick={openLightbox} />
+            <PhotoCard key={photo.id} photo={photo} onClick={openLightbox} isAdmin={isAdmin} onDelete={handleDelete} />
           ))}
         </div>
         {photos.length === 0 && !loading && (
@@ -60,6 +75,8 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
           onNext={lightboxIndex < photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
           hasPrev={lightboxIndex > 0}
           hasNext={lightboxIndex < photos.length - 1}
+          isAdmin={isAdmin}
+          onDelete={handleDelete}
         />
       )}
     </>

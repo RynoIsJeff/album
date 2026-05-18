@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import PhotoLightbox from "@/components/photos/PhotoLightbox"
 import TimelineGroup from "./TimelineGroup"
 import InfiniteScroller from "@/components/photos/InfiniteScroller"
@@ -11,9 +11,10 @@ type Props = {
   initialPhotos: PhotoSummary[]
   nextCursor: string | null
   searchParams?: Record<string, string>
+  isAdmin?: boolean
 }
 
-export default function TimelineClient({ initialPhotos, nextCursor: initialCursor, searchParams }: Props) {
+export default function TimelineClient({ initialPhotos, nextCursor: initialCursor, searchParams, isAdmin }: Props) {
   const [photos, setPhotos] = useState<PhotoSummary[]>(initialPhotos)
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [loading, setLoading] = useState(false)
@@ -33,8 +34,22 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
     setLoading(false)
   }, [cursor, loading, searchParams])
 
-  const grouped = groupByYear(photos)
-  const sortedYears = Array.from(grouped.keys()).sort((a, b) => b - a)
+  const handleDelete = useCallback((id: string) => {
+    setPhotos((prev) => {
+      const next = prev.filter((p) => p.id !== id)
+      setLightboxIndex((li) => {
+        if (li === null) return null
+        const deletedIdx = prev.findIndex((p) => p.id === id)
+        if (deletedIdx < 0) return li
+        if (next.length === 0) return null
+        return Math.min(li, next.length - 1)
+      })
+      return next
+    })
+  }, [])
+
+  const grouped = useMemo(() => groupByYear(photos), [photos])
+  const sortedYears = useMemo(() => Array.from(grouped.keys()).sort((a, b) => b - a), [grouped])
 
   return (
     <>
@@ -56,6 +71,8 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
                   const idx = photos.findIndex((p) => p.id === photo.id)
                   setLightboxIndex(idx)
                 }}
+                isAdmin={isAdmin}
+                onDelete={handleDelete}
               />
             ))}
           </div>
@@ -70,6 +87,8 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
           onNext={lightboxIndex < photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
           hasPrev={lightboxIndex > 0}
           hasNext={lightboxIndex < photos.length - 1}
+          isAdmin={isAdmin}
+          onDelete={handleDelete}
         />
       )}
     </>

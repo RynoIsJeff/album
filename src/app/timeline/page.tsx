@@ -151,6 +151,7 @@ export default async function TimelinePage({
               initialPhotos={photos}
               nextCursor={nextCursor}
               searchParams={activeSearchParams}
+              isAdmin={isAdmin}
             />
           </Suspense>
         </main>

@@ -13,9 +13,19 @@ type Props = {
   onNext?: () => void
   hasPrev?: boolean
   hasNext?: boolean
+  isAdmin?: boolean
+  onDelete?: (id: string) => void
 }
 
-export default function PhotoLightbox({ photo, onClose, onPrev, onNext, hasPrev, hasNext }: Props) {
+export default function PhotoLightbox({ photo, onClose, onPrev, onNext, hasPrev, hasNext, isAdmin, onDelete }: Props) {
+  const handleDelete = async () => {
+    if (!confirm("Delete this photo? This cannot be undone.")) return
+    const res = await fetch(`/api/photos/${photo.id}`, { method: "DELETE" })
+    if (res.ok) {
+      onDelete?.(photo.id)
+      onClose()
+    }
+  }
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
@@ -80,14 +90,26 @@ export default function PhotoLightbox({ photo, onClose, onPrev, onNext, hasPrev,
         </button>
       )}
 
-      {/* Close */}
-      <button
-        className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-        onClick={onClose}
-        aria-label="Close"
-      >
-        ✕
-      </button>
+      {/* Top-right toolbar: delete (admin) + close */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {isAdmin && (
+          <button
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-red-600 text-white transition-colors"
+            onClick={handleDelete}
+            aria-label="Delete photo"
+            title="Delete photo"
+          >
+            🗑
+          </button>
+        )}
+        <button
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
 
       {/* Bottom info panel */}
       <div

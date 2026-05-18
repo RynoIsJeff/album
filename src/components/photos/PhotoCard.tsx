@@ -7,12 +7,21 @@ import { formatDate } from "@/lib/utils"
 type Props = {
   photo: PhotoSummary
   onClick?: (photo: PhotoSummary) => void
+  isAdmin?: boolean
+  onDelete?: (id: string) => void
 }
 
-export default function PhotoCard({ photo, onClick }: Props) {
+export default function PhotoCard({ photo, onClick, isAdmin, onDelete }: Props) {
   const src = photo.thumbUrl || photo.blobUrl
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm("Delete this photo? This cannot be undone.")) return
+    const res = await fetch(`/api/photos/${photo.id}`, { method: "DELETE" })
+    if (res.ok) onDelete?.(photo.id)
+  }
 
   return (
     <div
@@ -57,6 +66,18 @@ export default function PhotoCard({ photo, onClick }: Props) {
             </div>
           )}
         </div>
+
+        {/* Admin delete button — top-right corner, appears on hover */}
+        {isAdmin && (
+          <button
+            onClick={handleDelete}
+            className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-red-600 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-all"
+            aria-label="Delete photo"
+            title="Delete photo"
+          >
+            🗑
+          </button>
+        )}
       </div>
     </div>
   )
