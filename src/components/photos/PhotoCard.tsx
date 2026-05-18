@@ -9,9 +9,13 @@ type Props = {
   onClick?: (photo: PhotoSummary) => void
   isAdmin?: boolean
   onDelete?: (id: string) => void
+  // Bulk-tag mode
+  tagMode?: boolean
+  selected?: boolean
+  onSelect?: (id: string) => void
 }
 
-export default function PhotoCard({ photo, onClick, isAdmin, onDelete }: Props) {
+export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, selected, onSelect }: Props) {
   const src = photo.thumbUrl || photo.blobUrl
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
@@ -23,14 +27,22 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete }: Props) 
     if (res.ok) onDelete?.(photo.id)
   }
 
+  const handleClick = () => {
+    if (tagMode) onSelect?.(photo.id)
+    else onClick?.(photo)
+  }
+
   return (
     <div
-      className="masonry-item cursor-pointer group relative overflow-hidden rounded-lg"
+      className={`masonry-item cursor-pointer group relative overflow-hidden rounded-lg transition-all ${
+        tagMode && selected ? "ring-4 ring-stone-700 ring-offset-2" : ""
+      }`}
       style={{ borderColor: "var(--border)" }}
-      onClick={() => onClick?.(photo)}
-      role="button"
+      onClick={handleClick}
+      role={tagMode ? "checkbox" : "button"}
+      aria-checked={tagMode ? selected : undefined}
       tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && onClick?.(photo)}
+      onKeyDown={(e) => e.key === "Enter" && handleClick()}
       aria-label={photo.caption || photo.originalName || "Family photo"}
     >
       <div
@@ -68,7 +80,7 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete }: Props) 
         </div>
 
         {/* Admin delete button — top-right corner, appears on hover */}
-        {isAdmin && (
+        {isAdmin && !tagMode && (
           <button
             onClick={handleDelete}
             className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-red-600 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-all"
@@ -77,6 +89,23 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete }: Props) 
           >
             🗑
           </button>
+        )}
+
+        {/* Tag-mode checkbox — top-left corner, always visible in tag mode */}
+        {tagMode && (
+          <div
+            className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+              selected
+                ? "bg-stone-800 border-stone-800"
+                : "bg-white/80 border-white/80"
+            }`}
+          >
+            {selected && (
+              <svg viewBox="0 0 12 12" className="w-3 h-3 text-white fill-current">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react"
 import PhotoLightbox from "@/components/photos/PhotoLightbox"
 import TimelineGroup from "./TimelineGroup"
 import InfiniteScroller from "@/components/photos/InfiniteScroller"
+import BulkTagPanel from "@/components/photos/BulkTagPanel"
 import { PhotoSummary, YearCount } from "@/types"
 import { groupByYear } from "@/lib/utils"
 
@@ -26,6 +27,10 @@ export default function TimelineClient({
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [loading, setLoading] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  // Bulk-tag mode
+  const [tagMode, setTagMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return
@@ -58,6 +63,32 @@ export default function TimelineClient({
     )
   }, [])
 
+  const handleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleBulkTag = useCallback(async (peopleNames: string[]) => {
+    const photoIds = Array.from(selectedIds)
+    if (!photoIds.length || !peopleNames.length) return
+    await fetch("/api/photos/tag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoIds, peopleNames }),
+    })
+    // Clear selection after successful tag
+    setSelectedIds(new Set())
+  }, [selectedIds])
+
+  const exitTagMode = useCallback(() => {
+    setTagMode(false)
+    setSelectedIds(new Set())
+  }, [])
+
   const grouped = useMemo(() => groupByYear(photos), [photos])
   const sortedYears = useMemo(
     () => Array.from(grouped.keys()).sort((a, b) => b - a),
@@ -66,19 +97,35 @@ export default function TimelineClient({
 
   return (
     <>
+      {/* Admin toolbar */}
+      {isAdmin && (
+        <div className="flex items-center justify-between mb-4">
+          <div /> {/* spacer */}
+          {!tagMode ? (
+            <button
+              onClick={() => setTagMode(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors hover:border-stone-400"
+              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+            >
+              👥 Tag people
+            </button>
+          ) : (
+            <span className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+              Tag mode — click photos to select
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Mobile year pills — hidden on lg where the sidebar shows */}
       {yearCounts.length > 0 && (
-        <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1 scrollbar-none">
+        <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
           {yearCounts.map(({ takenYear, count }) => (
             <a
               key={takenYear}
               href={`#year-${takenYear}`}
               className="shrink-0 px-3 py-1 rounded-full text-sm border transition-colors hover:border-stone-400 whitespace-nowrap"
-              style={{
-                borderColor: "var(--border)",
-                background: "white",
-                color: "var(--foreground)",
-              }}
+              style={{ borderColor: "var(--border)", background: "white", color: "var(--foreground)" }}
             >
               {takenYear === 0 ? "Unknown" : takenYear}
               <span className="ml-1 text-xs opacity-50">({count})</span>
@@ -95,25 +142,30 @@ export default function TimelineClient({
             <p className="text-sm mt-1">Start by uploading some scanned photos</p>
           </div>
         ) : (
-          <div className="space-y-12">
+          <div className={`space-y-12 ${tagMode ? "pb-48" : ""}`}>
             {sortedYears.map((year) => (
               <TimelineGroup
                 key={year}
                 year={year}
                 photos={grouped.get(year)!}
                 onPhotoClick={(photo) => {
+                  if (tagMode) return
                   const idx = photos.findIndex((p) => p.id === photo.id)
                   setLightboxIndex(idx)
                 }}
                 isAdmin={isAdmin}
                 onDelete={handleDelete}
+                tagMode={tagMode}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
               />
             ))}
           </div>
         )}
       </InfiniteScroller>
 
-      {lightboxIndex !== null && (
+      {/* Lightbox — disabled during tag mode */}
+      {lightboxIndex !== null && !tagMode && (
         <PhotoLightbox
           photo={photos[lightboxIndex]}
           onClose={() => setLightboxIndex(null)}
@@ -128,6 +180,16 @@ export default function TimelineClient({
           isAdmin={isAdmin}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
+        />
+      )}
+
+      {/* Bulk tag panel — floats at the bottom in tag mode */}
+      {tagMode && (
+        <BulkTagPanel
+          selectedCount={selectedIds.size}
+          onApply={handleBulkTag}
+          onClear={() => setSelectedIds(new Set())}
+          onExit={exitTagMode}
         />
       )}
     </>
