@@ -17,7 +17,9 @@ type UploadedFile = {
 
 type MetaState = {
   caption: string
+  dateMode: "full" | "year"
   takenAt: string
+  takenYear: string
   albumName: string
   peopleInput: string
   peopleNames: string[]
@@ -81,7 +83,9 @@ export default function PhotoUploadForm() {
       newFiles.forEach((f) => {
         initMeta[f.file.name] = {
           caption: "",
+          dateMode: "full",
           takenAt: "",
+          takenYear: "",
           albumName: "",
           peopleInput: "",
           peopleNames: [],
@@ -190,6 +194,12 @@ export default function PhotoUploadForm() {
         }
       }
 
+      const takenAt = meta.dateMode === "full" ? (meta.takenAt || null) : null
+      const takenYear =
+        meta.dateMode === "year"
+          ? (meta.takenYear ? parseInt(meta.takenYear) : null)
+          : (meta.takenAt ? new Date(meta.takenAt).getFullYear() : null)
+
       const res = await fetch("/api/photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -198,8 +208,8 @@ export default function PhotoUploadForm() {
           thumbUrl: uf.thumbUrl,
           width: uf.width,
           height: uf.height,
-          takenAt: meta.takenAt || null,
-          takenYear: meta.takenAt ? new Date(meta.takenAt).getFullYear() : null,
+          takenAt,
+          takenYear,
           caption: meta.caption || null,
           albumId,
           peopleIds,
@@ -282,14 +292,51 @@ export default function PhotoUploadForm() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium block mb-1">Date taken</label>
-                    <input
-                      type="date"
-                      value={meta.takenAt}
-                      onChange={(e) => updateMeta(uf.file.name, { takenAt: e.target.value })}
-                      className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
-                      style={{ borderColor: "var(--border)" }}
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium">Date taken</label>
+                      <div className="flex rounded border text-xs overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                        <button
+                          type="button"
+                          onClick={() => updateMeta(uf.file.name, { dateMode: "full" })}
+                          className="px-2 py-0.5 transition-colors"
+                          style={meta.dateMode === "full"
+                            ? { background: "var(--foreground)", color: "var(--background)" }
+                            : { color: "var(--muted)" }}
+                        >
+                          Full
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateMeta(uf.file.name, { dateMode: "year" })}
+                          className="px-2 py-0.5 transition-colors"
+                          style={meta.dateMode === "year"
+                            ? { background: "var(--foreground)", color: "var(--background)" }
+                            : { color: "var(--muted)" }}
+                        >
+                          Year
+                        </button>
+                      </div>
+                    </div>
+                    {meta.dateMode === "full" ? (
+                      <input
+                        type="date"
+                        value={meta.takenAt}
+                        onChange={(e) => updateMeta(uf.file.name, { takenAt: e.target.value })}
+                        className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={meta.takenYear}
+                        onChange={(e) => updateMeta(uf.file.name, { takenYear: e.target.value })}
+                        placeholder="e.g. 1975"
+                        min={1800}
+                        max={new Date().getFullYear()}
+                        className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-medium block mb-1">

@@ -7,11 +7,20 @@ import PhotoGrid from "@/components/photos/PhotoGrid"
 import DeleteAlbumButton from "@/components/albums/DeleteAlbumButton"
 import RenameAlbumForm from "@/components/albums/RenameAlbumForm"
 import MergeAlbumButton from "@/components/albums/MergeAlbumButton"
+import AlbumSortSelect from "@/components/albums/AlbumSortSelect"
+import { Suspense } from "react"
 
-export default async function AlbumPage({ params }: { params: { id: string } }) {
+export default async function AlbumPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams?: { sort?: string }
+}) {
   const session = await auth()
   if (!session) redirect("/login")
   const isAdmin = session.user?.isAdmin
+  const sort = searchParams?.sort === "upload" ? "upload" : "date"
 
   const album = await prisma.album.findUnique({
     where: { id: params.id },
@@ -19,9 +28,17 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
   })
   if (!album) notFound()
 
+  const orderBy =
+    sort === "upload"
+      ? [{ createdAt: "asc" as const }]
+      : [
+          { takenAt: { sort: "desc" as const, nulls: "last" as const } },
+          { createdAt: "desc" as const },
+        ]
+
   const rawPhotos = await prisma.photo.findMany({
     where: { albumId: params.id },
-    orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
+    orderBy,
     take: 31,
     select: {
       id: true,
@@ -83,17 +100,24 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
             </p>
           </div>
 
-          {isAdmin && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <MergeAlbumButton albumId={album.id} albumName={album.name} />
-              <DeleteAlbumButton
-                albumId={album.id}
-                albumName={album.name}
-                photoCount={album._count.photos}
-                variant="full"
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {photos.length > 1 && (
+              <Suspense fallback={null}>
+                <AlbumSortSelect current={sort} />
+              </Suspense>
+            )}
+            {isAdmin && (
+              <>
+                <MergeAlbumButton albumId={album.id} albumName={album.name} />
+                <DeleteAlbumButton
+                  albumId={album.id}
+                  albumName={album.name}
+                  photoCount={album._count.photos}
+                  variant="full"
+                />
+              </>
+            )}
+          </div>
         </div>
 
         {photos.length === 0 ? (
@@ -106,7 +130,7 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
           <PhotoGrid
             initialPhotos={photos}
             nextCursor={hasMore ? photos[photos.length - 1].id : null}
-            searchParams={{ albumId: params.id }}
+            searchParams={{ albumId: params.id, ...(sort !== "date" ? { sort } : {}) }}
             isAdmin={isAdmin}
           />
         )}

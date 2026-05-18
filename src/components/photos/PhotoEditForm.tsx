@@ -11,7 +11,11 @@ type Props = {
 
 export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
   const [caption, setCaption] = useState(photo.caption ?? "")
+  // Year-only if photo has takenYear but no full takenAt date
+  const isYearOnly = !photo.takenAt && !!photo.takenYear
+  const [dateMode, setDateMode] = useState<"full" | "year">(isYearOnly ? "year" : "full")
   const [takenAt, setTakenAt] = useState(photo.takenAt ? photo.takenAt.slice(0, 10) : "")
+  const [takenYear, setTakenYear] = useState(photo.takenYear ? String(photo.takenYear) : "")
   const [albumName, setAlbumName] = useState(photo.album?.name ?? "")
   const [peopleInput, setPeopleInput] = useState("")
   const [peopleNames, setPeopleNames] = useState<string[]>(
@@ -71,14 +75,20 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
         peopleIds.push((await r.json()).id)
       }
 
+      const resolvedTakenAt = dateMode === "full" ? (takenAt || null) : null
+      const resolvedTakenYear =
+        dateMode === "year"
+          ? (takenYear ? parseInt(takenYear) : null)
+          : (takenAt ? new Date(takenAt).getFullYear() : null)
+
       // Save
       const r = await fetch(`/api/photos/${photo.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           caption: caption.trim() || null,
-          takenAt: takenAt || null,
-          takenYear: takenAt ? new Date(takenAt).getFullYear() : null,
+          takenAt: resolvedTakenAt,
+          takenYear: resolvedTakenYear,
           albumId,
           peopleIds,
         }),
@@ -106,13 +116,49 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-white/70 block mb-1">Date taken</label>
-          <input
-            type="date"
-            value={takenAt}
-            onChange={(e) => setTakenAt(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/20 outline-none focus:border-white/50"
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-white/70">Date taken</label>
+            <div className="flex rounded border text-xs overflow-hidden border-white/20">
+              <button
+                type="button"
+                onClick={() => setDateMode("full")}
+                className="px-2 py-0.5 transition-colors"
+                style={dateMode === "full"
+                  ? { background: "rgba(255,255,255,0.9)", color: "#1c1917" }
+                  : { color: "rgba(255,255,255,0.5)" }}
+              >
+                Full
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode("year")}
+                className="px-2 py-0.5 transition-colors"
+                style={dateMode === "year"
+                  ? { background: "rgba(255,255,255,0.9)", color: "#1c1917" }
+                  : { color: "rgba(255,255,255,0.5)" }}
+              >
+                Year
+              </button>
+            </div>
+          </div>
+          {dateMode === "full" ? (
+            <input
+              type="date"
+              value={takenAt}
+              onChange={(e) => setTakenAt(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/20 outline-none focus:border-white/50"
+            />
+          ) : (
+            <input
+              type="number"
+              value={takenYear}
+              onChange={(e) => setTakenYear(e.target.value)}
+              placeholder="e.g. 1975"
+              min={1800}
+              max={new Date().getFullYear()}
+              className="w-full px-3 py-2 text-sm rounded-lg bg-white/10 text-white placeholder-white/30 border border-white/20 outline-none focus:border-white/50"
+            />
+          )}
         </div>
         <div>
           <label className="text-xs font-medium text-white/70 block mb-1">Album</label>

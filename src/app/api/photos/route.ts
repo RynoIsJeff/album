@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   const personId = searchParams.get("personId") || undefined
   const albumId = searchParams.get("albumId") || undefined
 
+  const sort = searchParams.get("sort") || "date"
+
   const where = {
     ...(year ? { takenYear: year } : {}),
     ...(albumId ? { albumId } : {}),
@@ -35,9 +37,17 @@ export async function GET(req: NextRequest) {
       : {}),
   }
 
+  const orderBy =
+    sort === "upload"
+      ? [{ createdAt: "asc" as const }]
+      : [
+          { takenAt: { sort: "desc" as const, nulls: "last" as const } },
+          { createdAt: "desc" as const },
+        ]
+
   const photos = await prisma.photo.findMany({
     where,
-    orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
+    orderBy,
     take: limit + 1,
     skip: cursor ? 1 : 0,
     cursor: cursor ? { id: cursor } : undefined,

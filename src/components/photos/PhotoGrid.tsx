@@ -22,15 +22,22 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return
     setLoading(true)
-    const params = new URLSearchParams({
-      cursor,
-      ...(searchParams || {}),
-    })
-    const res = await fetch(`/api/photos?${params}`)
-    const data = await res.json()
-    setPhotos((prev) => [...prev, ...data.photos])
-    setCursor(data.nextCursor)
-    setLoading(false)
+    try {
+      const params = new URLSearchParams({
+        cursor,
+        ...(searchParams || {}),
+      })
+      const res = await fetch(`/api/photos?${params}`)
+      if (!res.ok) throw new Error("Failed to load more photos")
+      const data = await res.json()
+      setPhotos((prev) => [...prev, ...data.photos])
+      setCursor(data.nextCursor)
+    } catch {
+      // Stop pagination on error so we don't retry indefinitely
+      setCursor(null)
+    } finally {
+      setLoading(false)
+    }
   }, [cursor, loading, searchParams])
 
   const openLightbox = useCallback((photo: PhotoSummary) => {
