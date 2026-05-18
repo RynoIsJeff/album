@@ -16,71 +16,116 @@ export default async function TimelinePage({
 }: {
   searchParams: SearchParams
 }) {
-  const session = await auth()
-  if (!session) redirect("/login")
+  let errorMessage: string | null = null
+  let photos: any[] = []
+  let yearCounts: YearCount[] = []
+  let nextCursor: string | null = null
+  let isAdmin = false
+  let activeSearchParams: Record<string, string> = {}
 
-  const isAdmin = (session.user as any)?.isAdmin
-  const { q, year, personId, albumId } = searchParams
-  const yearNum = year ? parseInt(year) : undefined
+  try {
+    const session = await auth()
+    if (!session) redirect("/login")
 
-  const where = {
-    ...(yearNum ? { takenYear: yearNum } : {}),
-    ...(albumId ? { albumId } : {}),
-    ...(personId ? { peopleTags: { some: { personId } } } : {}),
-    ...(q
-      ? {
-          OR: [
-            { caption: { contains: q, mode: "insensitive" as const } },
-            { originalName: { contains: q, mode: "insensitive" as const } },
-            {
-              peopleTags: {
-                some: {
-                  person: { name: { contains: q, mode: "insensitive" as const } },
+    isAdmin = (session.user as any)?.isAdmin ?? false
+    const { q, year, personId, albumId } = searchParams
+    const yearNum = year ? parseInt(year) : undefined
+
+    const where = {
+      ...(yearNum ? { takenYear: yearNum } : {}),
+      ...(albumId ? { albumId } : {}),
+      ...(personId ? { peopleTags: { some: { personId } } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { caption: { contains: q, mode: "insensitive" as const } },
+              { originalName: { contains: q, mode: "insensitive" as const } },
+              {
+                peopleTags: {
+                  some: {
+                    person: { name: { contains: q, mode: "insensitive" as const } },
+                  },
                 },
               },
-            },
-          ],
-        }
-      : {}),
+            ],
+          }
+        : {}),
+    }
+
+    const [rawPhotos, rawYearCounts] = await Promise.all([
+      prisma.photo.findMany({
+        where,
+        orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
+        take: 31,
+        select: {
+          id: true,
+          blobUrl: true,
+          thumbUrl: true,
+          width: true,
+          height: true,
+          takenAt: true,
+          takenYear: true,
+          caption: true,
+          originalName: true,
+          source: true,
+          createdAt: true,
+          albumId: true,
+          album: { select: { id: true, name: true } },
+          peopleTags: { include: { person: { select: { id: true, name: true } } } },
+        },
+      }),
+      prisma.photo.groupBy({
+        by: ["takenYear"],
+        _count: { id: true },
+        orderBy: { takenYear: "desc" },
+      }),
+    ])
+
+    const hasMore = rawPhotos.length > 30
+    if (hasMore) rawPhotos.pop()
+
+    // Explicitly serialize — no Date objects or undefined values cross the boundary
+    photos = rawPhotos.map((p) => ({
+      id: p.id,
+      blobUrl: p.blobUrl,
+      thumbUrl: p.thumbUrl ?? null,
+      width: p.width ?? null,
+      height: p.height ?? null,
+      takenAt: p.takenAt ? p.takenAt.toISOString() : null,
+      takenYear: p.takenYear ?? null,
+      caption: p.caption ?? null,
+      originalName: p.originalName ?? null,
+      source: p.source,
+      createdAt: p.createdAt.toISOString(),
+      albumId: p.albumId ?? null,
+      album: p.album ?? null,
+      peopleTags: p.peopleTags,
+    }))
+
+    yearCounts = rawYearCounts.map((y) => ({
+      takenYear: y.takenYear ?? 0,
+      count: y._count.id,
+    }))
+
+    nextCursor = hasMore ? photos[photos.length - 1].id : null
+
+    activeSearchParams = Object.fromEntries(
+      Object.entries({ q, year, personId, albumId }).filter(([, v]) => v != null) as [string, string][]
+    )
+  } catch (err: any) {
+    // Let Next.js handle redirects normally
+    if (err?.digest?.startsWith("NEXT_REDIRECT")) throw err
+    errorMessage = String(err?.message ?? err)
   }
 
-  const [rawPhotos, rawYearCounts] = await Promise.all([
-    prisma.photo.findMany({
-      where,
-      orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
-      take: 31,
-      include: {
-        album: { select: { id: true, name: true } },
-        peopleTags: { include: { person: { select: { id: true, name: true } } } },
-      },
-    }),
-    prisma.photo.groupBy({
-      by: ["takenYear"],
-      _count: { id: true },
-      orderBy: { takenYear: "desc" },
-    }),
-  ])
-
-  const hasMore = rawPhotos.length > 30
-  if (hasMore) rawPhotos.pop()
-
-  const photos = rawPhotos.map((p) => ({
-    ...p,
-    takenAt: p.takenAt?.toISOString() ?? null,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: undefined,
-  }))
-
-  const yearCounts: YearCount[] = rawYearCounts.map((y) => ({
-    takenYear: y.takenYear ?? 0,
-    count: y._count.id,
-  }))
-
-  const nextCursor = hasMore ? photos[photos.length - 1].id : null
-
-  const activeSearchParams = Object.fromEntries(
-    Object.entries({ q, year, personId, albumId }).filter(([, v]) => v != null) as [string, string][]
-  )
+  if (errorMessage) {
+    return (
+      <div className="min-h-screen p-8" style={{ background: "var(--background)" }}>
+        <h1 className="font-serif text-2xl font-bold mb-4 text-red-700">Something went wrong</h1>
+        <pre className="text-sm bg-red-50 border border-red-200 rounded p-4 overflow-auto">{errorMessage}</pre>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen pb-16 md:pb-0" style={{ background: "var(--background)" }}>
@@ -101,15 +146,9 @@ export default async function TimelinePage({
 
         {/* Main content */}
         <main className="flex-1 min-w-0">
-          {(q || yearNum || personId || albumId) && (
-            <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-              {q && <>Searching for &ldquo;{q}&rdquo;</>}
-              {yearNum && <> · {yearNum}</>}
-            </p>
-          )}
           <Suspense fallback={<div className="text-sm" style={{ color: "var(--muted)" }}>Loading…</div>}>
             <TimelineClient
-              initialPhotos={photos as any}
+              initialPhotos={photos}
               nextCursor={nextCursor}
               searchParams={activeSearchParams}
             />
