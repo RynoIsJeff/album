@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useSwipeable } from "react-swipeable"
 import { PhotoSummary } from "@/types"
 import { formatDate } from "@/lib/utils"
 import PhotoEditForm from "./PhotoEditForm"
@@ -84,8 +85,19 @@ export default function PhotoLightbox({
     setEditing(false)
   }
 
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => { if (hasNext && !editing) onNext?.() },
+    onSwipedRight: () => { if (hasPrev && !editing) onPrev?.() },
+    onSwipedDown: () => { if (!editing) onClose() },
+    preventScrollOnSwipe: true,
+    trackMouse: false,
+  })
+
+  const downloadUrl = `/api/download?url=${encodeURIComponent(photo.blobUrl)}&name=${encodeURIComponent(photo.originalName || "photo.jpg")}`
+
   return (
     <div
+      {...swipeHandlers}
       className="fixed inset-0 z-50 flex"
       style={{ background: "rgba(0,0,0,0.94)" }}
       onClick={editing ? undefined : onClose}
@@ -145,12 +157,9 @@ export default function PhotoLightbox({
               {playing ? "⏸" : "▶"}
             </button>
 
-            {/* Download */}
+            {/* Download — proxied so it triggers a real file download */}
             <a
-              href={photo.blobUrl}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
+              href={downloadUrl}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
               aria-label="Download photo"
               title="Download photo"
@@ -158,6 +167,17 @@ export default function PhotoLightbox({
             >
               ⬇
             </a>
+
+            {/* Open detail / share page */}
+            <Link
+              href={`/photo/${photo.id}`}
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+              aria-label="Open shareable page"
+              title="Shareable link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              🔗
+            </Link>
 
             {/* Edit — admin only */}
             {isAdmin && (

@@ -32,6 +32,12 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
     else onClick?.(photo)
   }
 
+  const isNew = (() => {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 7)
+    return new Date(photo.createdAt) > cutoff
+  })()
+
   return (
     <div
       className={`masonry-item cursor-pointer group relative overflow-hidden rounded-lg transition-all ${
@@ -89,6 +95,14 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
           >
             🗑
           </button>
+        )}
+
+        {/* "New this week" badge — bottom-left, only when not in tag mode */}
+        {isNew && !tagMode && (
+          <div className="absolute bottom-2 left-2 z-10 px-1.5 py-0.5 rounded text-xs font-semibold text-white"
+            style={{ background: "rgba(21,128,61,0.85)", letterSpacing: "0.03em" }}>
+            New
+          </div>
         )}
 
         {/* Tag-mode checkbox — top-left corner, always visible in tag mode */}
