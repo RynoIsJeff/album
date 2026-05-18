@@ -34,11 +34,11 @@ export default async function Header() {
         <Link href="/people" className="hover:opacity-100 transition-opacity">People</Link>
         {isAdmin && (
           <Link
-            href="/admin/upload"
+            href="/admin"
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{ background: "var(--foreground)", color: "var(--background)" }}
           >
-            Upload
+            Admin
           </Link>
         )}
         <LogoutButton />
