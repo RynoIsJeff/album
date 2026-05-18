@@ -52,6 +52,10 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
     })
   }, [])
 
+  const handleUpdate = useCallback((updated: PhotoSummary) => {
+    setPhotos((prev) => prev.map((p) => p.id === updated.id ? { ...p, ...updated } : p))
+  }, [])
+
   return (
     <>
       <InfiniteScroller onLoadMore={loadMore} hasMore={!!cursor} isLoading={loading}>
@@ -77,6 +81,7 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
           hasNext={lightboxIndex < photos.length - 1}
           isAdmin={isAdmin}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
         />
       )}
     </>

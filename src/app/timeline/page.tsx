@@ -152,6 +152,7 @@ export default async function TimelinePage({
               nextCursor={nextCursor}
               searchParams={activeSearchParams}
               isAdmin={isAdmin}
+              yearCounts={yearCounts}
             />
           </Suspense>
         </main>

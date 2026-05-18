@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db"
 import Header from "@/components/layout/Header"
 import MobileNav from "@/components/layout/MobileNav"
 import PhotoGrid from "@/components/photos/PhotoGrid"
+import RenamePersonForm from "@/components/people/RenamePersonForm"
+import DeletePersonButton from "@/components/people/DeletePersonButton"
 
 export default async function PersonPage({ params }: { params: { id: string } }) {
   const session = await auth()
@@ -20,7 +22,19 @@ export default async function PersonPage({ params }: { params: { id: string } })
     where: { peopleTags: { some: { personId: params.id } } },
     orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
     take: 31,
-    include: {
+    select: {
+      id: true,
+      blobUrl: true,
+      thumbUrl: true,
+      width: true,
+      height: true,
+      takenAt: true,
+      takenYear: true,
+      caption: true,
+      originalName: true,
+      source: true,
+      createdAt: true,
+      albumId: true,
       album: { select: { id: true, name: true } },
       peopleTags: { include: { person: { select: { id: true, name: true } } } },
     },
@@ -30,31 +44,69 @@ export default async function PersonPage({ params }: { params: { id: string } })
   if (hasMore) rawPhotos.pop()
 
   const photos = rawPhotos.map((p) => ({
-    ...p,
-    takenAt: p.takenAt?.toISOString() ?? null,
+    id: p.id,
+    blobUrl: p.blobUrl,
+    thumbUrl: p.thumbUrl ?? null,
+    width: p.width ?? null,
+    height: p.height ?? null,
+    takenAt: p.takenAt ? p.takenAt.toISOString() : null,
+    takenYear: p.takenYear ?? null,
+    caption: p.caption ?? null,
+    originalName: p.originalName ?? null,
+    source: p.source,
     createdAt: p.createdAt.toISOString(),
-    updatedAt: undefined,
+    albumId: p.albumId ?? null,
+    album: p.album ?? null,
+    peopleTags: p.peopleTags,
   }))
 
   return (
     <div className="min-h-screen pb-16 md:pb-0" style={{ background: "var(--background)" }}>
       <Header />
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-        <div className="mb-6">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mb-3"
-            style={{ background: "var(--sepia-light)", color: "var(--muted)" }}>
-            {person.name[0].toUpperCase()}
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div
+              className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-xl font-bold mt-1"
+              style={{ background: "var(--sepia-light)", color: "var(--muted)" }}
+            >
+              {person.name[0].toUpperCase()}
+            </div>
+            <div>
+              <RenamePersonForm
+                personId={person.id}
+                initialName={person.name}
+                isAdmin={isAdmin}
+              />
+              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                {person._count.tags} {person._count.tags === 1 ? "photo" : "photos"}
+              </p>
+            </div>
           </div>
-          <h1 className="font-serif text-3xl font-bold">{person.name}</h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            {person._count.tags} {person._count.tags === 1 ? "photo" : "photos"}
-          </p>
+          {isAdmin && (
+            <DeletePersonButton
+              personId={person.id}
+              personName={person.name}
+              photoCount={person._count.tags}
+              variant="full"
+            />
+          )}
         </div>
-        <PhotoGrid
-          initialPhotos={photos as any}
-          nextCursor={hasMore ? photos[photos.length - 1].id : null}
-          searchParams={{ personId: params.id }}
-        />
+
+        {photos.length === 0 ? (
+          <div className="text-center py-20" style={{ color: "var(--muted)" }}>
+            <p className="text-4xl mb-3">👤</p>
+            <p className="text-lg font-medium">No photos yet</p>
+            <p className="text-sm mt-1">Tag {person.name} when uploading or editing photos</p>
+          </div>
+        ) : (
+          <PhotoGrid
+            initialPhotos={photos}
+            nextCursor={hasMore ? photos[photos.length - 1].id : null}
+            searchParams={{ personId: params.id }}
+            isAdmin={isAdmin}
+          />
+        )}
       </div>
       <MobileNav isAdmin={isAdmin} />
     </div>

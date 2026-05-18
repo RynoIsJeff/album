@@ -14,6 +14,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(person)
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isAdmin = (session.user as any)?.isAdmin
+  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const { name } = await req.json()
+  if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 })
+
+  try {
+    const person = await prisma.person.update({
+      where: { id: params.id },
+      data: { name: name.trim() },
+    })
+    return NextResponse.json(person)
+  } catch {
+    return NextResponse.json({ error: "Name already taken" }, { status: 409 })
+  }
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

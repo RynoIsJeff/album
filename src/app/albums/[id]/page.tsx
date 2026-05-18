@@ -5,6 +5,8 @@ import Header from "@/components/layout/Header"
 import MobileNav from "@/components/layout/MobileNav"
 import PhotoGrid from "@/components/photos/PhotoGrid"
 import DeleteAlbumButton from "@/components/albums/DeleteAlbumButton"
+import RenameAlbumForm from "@/components/albums/RenameAlbumForm"
+import MergeAlbumButton from "@/components/albums/MergeAlbumButton"
 
 export default async function AlbumPage({ params }: { params: { id: string } }) {
   const session = await auth()
@@ -21,7 +23,19 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
     where: { albumId: params.id },
     orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
     take: 31,
-    include: {
+    select: {
+      id: true,
+      blobUrl: true,
+      thumbUrl: true,
+      width: true,
+      height: true,
+      takenAt: true,
+      takenYear: true,
+      caption: true,
+      originalName: true,
+      source: true,
+      createdAt: true,
+      albumId: true,
       album: { select: { id: true, name: true } },
       peopleTags: { include: { person: { select: { id: true, name: true } } } },
     },
@@ -51,31 +65,51 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
     <div className="min-h-screen pb-16 md:pb-0" style={{ background: "var(--background)" }}>
       <Header />
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
+        {/* Header row */}
+        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-serif text-3xl font-bold">{album.name}</h1>
+            <RenameAlbumForm
+              albumId={album.id}
+              initialName={album.name}
+              isAdmin={isAdmin}
+            />
             {album.description && (
-              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{album.description}</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                {album.description}
+              </p>
             )}
             <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
               {album._count.photos} {album._count.photos === 1 ? "photo" : "photos"}
             </p>
           </div>
+
           {isAdmin && (
-            <DeleteAlbumButton
-              albumId={album.id}
-              albumName={album.name}
-              photoCount={album._count.photos}
-              variant="full"
-            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <MergeAlbumButton albumId={album.id} albumName={album.name} />
+              <DeleteAlbumButton
+                albumId={album.id}
+                albumName={album.name}
+                photoCount={album._count.photos}
+                variant="full"
+              />
+            </div>
           )}
         </div>
-        <PhotoGrid
-          initialPhotos={photos as any}
-          nextCursor={hasMore ? photos[photos.length - 1].id : null}
-          searchParams={{ albumId: params.id }}
-          isAdmin={isAdmin}
-        />
+
+        {photos.length === 0 ? (
+          <div className="text-center py-20" style={{ color: "var(--muted)" }}>
+            <p className="text-4xl mb-3">📷</p>
+            <p className="text-lg font-medium">No photos in this album</p>
+            <p className="text-sm mt-1">Upload photos and assign them to this album</p>
+          </div>
+        ) : (
+          <PhotoGrid
+            initialPhotos={photos}
+            nextCursor={hasMore ? photos[photos.length - 1].id : null}
+            searchParams={{ albumId: params.id }}
+            isAdmin={isAdmin}
+          />
+        )}
       </div>
       <MobileNav isAdmin={isAdmin} />
     </div>

@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from "react"
 import PhotoLightbox from "@/components/photos/PhotoLightbox"
 import TimelineGroup from "./TimelineGroup"
 import InfiniteScroller from "@/components/photos/InfiniteScroller"
-import { PhotoSummary } from "@/types"
+import { PhotoSummary, YearCount } from "@/types"
 import { groupByYear } from "@/lib/utils"
 
 type Props = {
@@ -12,9 +12,16 @@ type Props = {
   nextCursor: string | null
   searchParams?: Record<string, string>
   isAdmin?: boolean
+  yearCounts?: YearCount[]
 }
 
-export default function TimelineClient({ initialPhotos, nextCursor: initialCursor, searchParams, isAdmin }: Props) {
+export default function TimelineClient({
+  initialPhotos,
+  nextCursor: initialCursor,
+  searchParams,
+  isAdmin,
+  yearCounts = [],
+}: Props) {
   const [photos, setPhotos] = useState<PhotoSummary[]>(initialPhotos)
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [loading, setLoading] = useState(false)
@@ -23,10 +30,7 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return
     setLoading(true)
-    const params = new URLSearchParams({
-      cursor,
-      ...(searchParams || {}),
-    })
+    const params = new URLSearchParams({ cursor, ...(searchParams || {}) })
     const res = await fetch(`/api/photos?${params}`)
     const data = await res.json()
     setPhotos((prev) => [...prev, ...data.photos])
@@ -48,11 +52,41 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
     })
   }, [])
 
+  const handleUpdate = useCallback((updated: PhotoSummary) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+    )
+  }, [])
+
   const grouped = useMemo(() => groupByYear(photos), [photos])
-  const sortedYears = useMemo(() => Array.from(grouped.keys()).sort((a, b) => b - a), [grouped])
+  const sortedYears = useMemo(
+    () => Array.from(grouped.keys()).sort((a, b) => b - a),
+    [grouped]
+  )
 
   return (
     <>
+      {/* Mobile year pills — hidden on lg where the sidebar shows */}
+      {yearCounts.length > 0 && (
+        <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1 scrollbar-none">
+          {yearCounts.map(({ takenYear, count }) => (
+            <a
+              key={takenYear}
+              href={`#year-${takenYear}`}
+              className="shrink-0 px-3 py-1 rounded-full text-sm border transition-colors hover:border-stone-400 whitespace-nowrap"
+              style={{
+                borderColor: "var(--border)",
+                background: "white",
+                color: "var(--foreground)",
+              }}
+            >
+              {takenYear === 0 ? "Unknown" : takenYear}
+              <span className="ml-1 text-xs opacity-50">({count})</span>
+            </a>
+          ))}
+        </div>
+      )}
+
       <InfiniteScroller onLoadMore={loadMore} hasMore={!!cursor} isLoading={loading}>
         {photos.length === 0 ? (
           <div className="text-center py-24" style={{ color: "var(--muted)" }}>
@@ -84,11 +118,16 @@ export default function TimelineClient({ initialPhotos, nextCursor: initialCurso
           photo={photos[lightboxIndex]}
           onClose={() => setLightboxIndex(null)}
           onPrev={lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
-          onNext={lightboxIndex < photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+          onNext={
+            lightboxIndex < photos.length - 1
+              ? () => setLightboxIndex(lightboxIndex + 1)
+              : undefined
+          }
           hasPrev={lightboxIndex > 0}
           hasNext={lightboxIndex < photos.length - 1}
           isAdmin={isAdmin}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
         />
       )}
     </>
