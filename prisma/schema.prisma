@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Photo {
+  id           String      @id @default(cuid())
+  blobUrl      String
+  thumbUrl     String?
+  width        Int?
+  height       Int?
+  takenAt      DateTime?
+  takenYear    Int?
+  caption      String?
+  originalName String?
+  source       String      @default("browser")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  albumId      String?
+  album        Album?      @relation(fields: [albumId], references: [id])
+  peopleTags   PeopleTag[]
+
+  @@index([takenYear])
+  @@index([takenAt])
+  @@index([albumId])
+}
+
+model Album {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  photos      Photo[]
+
+  @@index([name])
+}
+
+model Person {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  createdAt DateTime    @default(now())
+  tags      PeopleTag[]
+
+  @@index([name])
+}
+
+model PeopleTag {
+  id       String @id @default(cuid())
+  photoId  String
+  personId String
+  photo    Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, personId])
+  @@index([personId])
+  @@index([photoId])
+}
