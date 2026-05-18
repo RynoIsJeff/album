@@ -4,8 +4,13 @@ import SearchBar from "@/components/search/SearchBar"
 import { Suspense } from "react"
 
 export default async function Header() {
-  const session = await auth()
-  const isAdmin = (session?.user as any)?.isAdmin
+  let isAdmin = false
+  try {
+    const session = await auth()
+    isAdmin = (session?.user as any)?.isAdmin ?? false
+  } catch {
+    // Render header without admin controls if session check fails
+  }
 
   return (
     <header

@@ -4,6 +4,8 @@ import Credentials from "next-auth/providers/credentials"
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // NextAuth v5 uses AUTH_SECRET; fall back to NEXTAUTH_SECRET for compatibility
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  // Required on Vercel — requests come through a proxy with x-forwarded-host
+  trustHost: true,
   providers: [
     Credentials({
       name: "Family Password",
