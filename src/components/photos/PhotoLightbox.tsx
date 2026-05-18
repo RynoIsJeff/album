@@ -7,6 +7,7 @@ import { useSwipeable } from "react-swipeable"
 import { PhotoSummary } from "@/types"
 import { formatDate } from "@/lib/utils"
 import PhotoEditForm from "./PhotoEditForm"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   photo: PhotoSummary
@@ -18,6 +19,8 @@ type Props = {
   isAdmin?: boolean
   onDelete?: (id: string) => void
   onUpdate?: (updated: PhotoSummary) => void
+  photoIndex?: number
+  totalPhotos?: number
 }
 
 export default function PhotoLightbox({
@@ -30,14 +33,27 @@ export default function PhotoLightbox({
   isAdmin,
   onDelete,
   onUpdate,
+  photoIndex,
+  totalPhotos,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  const addToast = useToast()
   const onNextRef = useRef(onNext)
   useEffect(() => { onNextRef.current = onNext }, [onNext])
 
-  // Reset edit mode when photo changes
-  useEffect(() => { setEditing(false) }, [photo.id])
+  // Reset edit mode, zoom, and drag state when photo changes
+  useEffect(() => {
+    setEditing(false)
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    setDragging(false)
+    dragStart.current = null
+  }, [photo.id])
 
   // Stop slideshow on last photo
   useEffect(() => {
@@ -57,12 +73,15 @@ export default function PhotoLightbox({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (editing) return
-      if (e.key === "Escape") onClose()
-      if (e.key === "ArrowLeft" && hasPrev) onPrev?.()
-      if (e.key === "ArrowRight" && hasNext) onNext?.()
+      if (e.key === "Escape") {
+        if (zoom > 1) { setZoom(1); setPan({ x: 0, y: 0 }) }
+        else onClose()
+      }
+      if (e.key === "ArrowLeft" && hasPrev && zoom === 1) onPrev?.()
+      if (e.key === "ArrowRight" && hasNext && zoom === 1) onNext?.()
       if (e.key === " ") { e.preventDefault(); setPlaying((p) => !p) }
     },
-    [onClose, onPrev, onNext, hasPrev, hasNext, editing]
+    [onClose, onPrev, onNext, hasPrev, hasNext, editing, zoom]
   )
 
   useEffect(() => {
@@ -77,19 +96,26 @@ export default function PhotoLightbox({
   const handleDelete = async () => {
     if (!confirm("Delete this photo? This cannot be undone.")) return
     const res = await fetch(`/api/photos/${photo.id}`, { method: "DELETE" })
-    if (res.ok) { onDelete?.(photo.id); onClose() }
+    if (res.ok) {
+      addToast("Photo deleted", "success")
+      onDelete?.(photo.id)
+      onClose()
+    } else {
+      addToast("Failed to delete photo", "error")
+    }
   }
 
   const handleSave = (updated: PhotoSummary) => {
+    addToast("Changes saved", "success")
     onUpdate?.(updated)
     setEditing(false)
   }
 
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => { if (hasNext && !editing) onNext?.() },
-    onSwipedRight: () => { if (hasPrev && !editing) onPrev?.() },
-    onSwipedDown: () => { if (!editing) onClose() },
-    preventScrollOnSwipe: true,
+    onSwipedLeft: () => { if (hasNext && !editing && zoom === 1) onNext?.() },
+    onSwipedRight: () => { if (hasPrev && !editing && zoom === 1) onPrev?.() },
+    onSwipedDown: () => { if (!editing && zoom === 1) onClose() },
+    preventScrollOnSwipe: zoom === 1,
     trackMouse: false,
   })
 
@@ -113,21 +139,71 @@ export default function PhotoLightbox({
 
       {/* Main image */}
       <div
-        className="flex-1 flex items-center justify-center p-4 md:p-12"
+        className="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        style={{ touchAction: zoom > 1 ? "pinch-zoom" : "none" }}
       >
-        <div className="relative max-h-full max-w-full" style={{ maxHeight: "80vh" }}>
+        <div
+          className="relative max-h-full max-w-full select-none"
+          style={{
+            maxHeight: "80vh",
+            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+            transformOrigin: "center",
+            transition: dragging ? "none" : "transform 0.15s ease",
+            cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default",
+          }}
+          onWheel={(e) => {
+            e.stopPropagation()
+            const next = e.deltaY < 0
+              ? Math.min(zoom + 0.5, 3)
+              : Math.max(zoom - 0.5, 1)
+            setZoom(next)
+            if (next === 1) setPan({ x: 0, y: 0 })
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            const next = zoom === 1 ? 2 : 1
+            setZoom(next)
+            if (next === 1) setPan({ x: 0, y: 0 })
+          }}
+          onMouseDown={(e) => {
+            if (zoom <= 1) return
+            e.stopPropagation()
+            setDragging(true)
+            dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }
+          }}
+          onMouseMove={(e) => {
+            if (!dragging || !dragStart.current) return
+            setPan({
+              x: dragStart.current.px + (e.clientX - dragStart.current.x),
+              y: dragStart.current.py + (e.clientY - dragStart.current.y),
+            })
+          }}
+          onMouseUp={() => { setDragging(false); dragStart.current = null }}
+          onMouseLeave={() => { setDragging(false); dragStart.current = null }}
+        >
           <Image
             src={photo.blobUrl}
             alt={photo.caption || "Family photo"}
             width={photo.width || 1200}
             height={photo.height || 900}
-            className="object-contain max-h-[80vh] rounded-sm"
+            className="object-contain max-h-[80vh] rounded-sm pointer-events-none"
             style={{ maxHeight: "80vh", width: "auto", height: "auto" }}
             priority
+            draggable={false}
           />
         </div>
       </div>
+
+      {/* Zoom indicator */}
+      {zoom > 1 && (
+        <div
+          className="absolute bottom-20 right-4 z-10 px-2 py-1 rounded bg-white/10 text-white text-xs select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {zoom}×
+        </div>
+      )}
 
       {/* Next */}
       {hasNext && !editing && (
@@ -136,6 +212,16 @@ export default function PhotoLightbox({
           onClick={(e) => { e.stopPropagation(); onNext?.() }}
           aria-label="Next photo"
         >→</button>
+      )}
+
+      {/* Top-left counter */}
+      {photoIndex != null && totalPhotos != null && (
+        <div
+          className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm tabular-nums select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {photoIndex} / {totalPhotos}
+        </div>
       )}
 
       {/* Top-right toolbar */}

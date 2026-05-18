@@ -2,15 +2,17 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   personId: string
   initialName: string
-  isAdmin: boolean
+  isAdmin?: boolean
 }
 
 export default function RenamePersonForm({ personId, initialName, isAdmin }: Props) {
   const router = useRouter()
+  const addToast = useToast()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(initialName)
   const [saving, setSaving] = useState(false)
@@ -27,9 +29,11 @@ export default function RenamePersonForm({ personId, initialName, isAdmin }: Pro
       body: JSON.stringify({ name: trimmed }),
     })
     if (res.ok) {
+      addToast("Name updated", "success")
       router.refresh()
       setEditing(false)
     } else {
+      addToast("That name is already taken.", "error")
       setError("That name is already taken.")
     }
     setSaving(false)

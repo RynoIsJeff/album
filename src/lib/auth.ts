@@ -27,11 +27,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.isAdmin = (user as any).isAdmin as boolean | undefined
+      if (user) token.isAdmin = user.isAdmin
       return token
     },
     session({ session, token }) {
-      if (session.user) (session.user as any).isAdmin = token.isAdmin
+      if (session.user) session.user.isAdmin = token.isAdmin
       return session
     },
   },

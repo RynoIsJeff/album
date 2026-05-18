@@ -10,7 +10,7 @@ import DeletePersonButton from "@/components/people/DeletePersonButton"
 export default async function PersonPage({ params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) redirect("/login")
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
 
   const person = await prisma.person.findUnique({
     where: { id: params.id },

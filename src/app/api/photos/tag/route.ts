@@ -12,7 +12,7 @@ import { auth } from "@/lib/auth"
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { photoIds, peopleNames } = await req.json()

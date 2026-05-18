@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   albumId: string
@@ -14,6 +15,7 @@ type Props = {
 
 export default function DeleteAlbumButton({ albumId, albumName, photoCount, variant = "icon" }: Props) {
   const router = useRouter()
+  const addToast = useToast()
   const [deleting, setDeleting] = useState(false)
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -30,10 +32,10 @@ export default function DeleteAlbumButton({ albumId, albumName, photoCount, vari
     setDeleting(true)
     const res = await fetch(`/api/albums/${albumId}`, { method: "DELETE" })
     if (res.ok) {
+      addToast(`Album "${albumName}" deleted`, "success")
       router.push("/albums")
-      router.refresh()
     } else {
-      alert("Failed to delete album. Please try again.")
+      addToast("Failed to delete album. Please try again.", "error")
       setDeleting(false)
     }
   }

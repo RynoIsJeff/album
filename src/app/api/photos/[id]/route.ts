@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(session.user as any)?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!session.user?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { caption, takenAt, takenYear, albumId, peopleIds } = body
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   await prisma.photo.delete({ where: { id: params.id } })
@@ -67,6 +67,6 @@ function serialize(photo: any) {
     ...photo,
     takenAt: photo.takenAt?.toISOString() ?? null,
     createdAt: photo.createdAt.toISOString(),
-    updatedAt: photo.updatedAt?.toISOString() ?? undefined,
+    updatedAt: photo.updatedAt?.toISOString() ?? null,
   }
 }

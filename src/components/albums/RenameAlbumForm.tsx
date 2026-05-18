@@ -2,15 +2,17 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   albumId: string
   initialName: string
-  isAdmin: boolean
+  isAdmin?: boolean
 }
 
 export default function RenameAlbumForm({ albumId, initialName, isAdmin }: Props) {
   const router = useRouter()
+  const addToast = useToast()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(initialName)
   const [saving, setSaving] = useState(false)
@@ -25,8 +27,11 @@ export default function RenameAlbumForm({ albumId, initialName, isAdmin }: Props
       body: JSON.stringify({ name: trimmed }),
     })
     if (res.ok) {
+      addToast("Album renamed", "success")
       router.refresh()
       setEditing(false)
+    } else {
+      addToast("Failed to rename album", "error")
     }
     setSaving(false)
   }

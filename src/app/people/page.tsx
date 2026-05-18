@@ -8,7 +8,7 @@ import PersonCard from "@/components/people/PersonCard"
 export default async function PeoplePage() {
   const session = await auth()
   if (!session) redirect("/login")
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
 
   const people = await prisma.person.findMany({
     orderBy: { name: "asc" },

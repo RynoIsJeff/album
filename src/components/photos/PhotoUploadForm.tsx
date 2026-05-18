@@ -153,58 +153,71 @@ export default function PhotoUploadForm() {
     if (uf.status !== "done") return
     const meta = metas[uf.file.name]
 
-    // Find or create people
-    const peopleIds: string[] = []
-    for (const name of meta.peopleNames) {
-      const res = await fetch("/api/people", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      })
-      const person = await res.json()
-      peopleIds.push(person.id)
-    }
-
-    // Find existing album (case-insensitive) or create a new one
-    let albumId: string | null = null
-    const trimmedAlbumName = meta.albumName.trim()
-    if (trimmedAlbumName) {
-      const existing = albums.find(
-        (a) => a.name.toLowerCase() === trimmedAlbumName.toLowerCase()
-      )
-      if (existing) {
-        albumId = existing.id
-      } else {
-        const res = await fetch("/api/albums", {
+    try {
+      // Find or create people
+      const peopleIds: string[] = []
+      for (const name of meta.peopleNames) {
+        const res = await fetch("/api/people", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmedAlbumName }),
+          body: JSON.stringify({ name }),
         })
-        const album = await res.json()
-        albumId = album.id
-        // Add to local list so the next photo in this session can find it
-        setAlbums((prev) => [...prev, { id: album.id, name: album.name }])
+        if (!res.ok) throw new Error(`Failed to resolve person: ${name}`)
+        const person = await res.json()
+        peopleIds.push(person.id)
       }
+
+      // Find existing album (case-insensitive) or create a new one
+      let albumId: string | null = null
+      const trimmedAlbumName = meta.albumName.trim()
+      if (trimmedAlbumName) {
+        const existing = albums.find(
+          (a) => a.name.toLowerCase() === trimmedAlbumName.toLowerCase()
+        )
+        if (existing) {
+          albumId = existing.id
+        } else {
+          const res = await fetch("/api/albums", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: trimmedAlbumName }),
+          })
+          if (!res.ok) throw new Error("Failed to create album")
+          const album = await res.json()
+          albumId = album.id
+          // Add to local list so the next photo in this session can find it
+          setAlbums((prev) => [...prev, { id: album.id, name: album.name }])
+        }
+      }
+
+      const res = await fetch("/api/photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blobUrl: uf.blobUrl,
+          thumbUrl: uf.thumbUrl,
+          width: uf.width,
+          height: uf.height,
+          takenAt: meta.takenAt || null,
+          takenYear: meta.takenAt ? new Date(meta.takenAt).getFullYear() : null,
+          caption: meta.caption || null,
+          albumId,
+          peopleIds,
+          originalName: uf.file.name,
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to save photo")
+
+      updateMeta(uf.file.name, { saved: true })
+    } catch (err) {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file.name === uf.file.name
+            ? { ...f, status: "error", error: (err as Error).message }
+            : f
+        )
+      )
     }
-
-    await fetch("/api/photos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        blobUrl: uf.blobUrl,
-        thumbUrl: uf.thumbUrl,
-        width: uf.width,
-        height: uf.height,
-        takenAt: meta.takenAt || null,
-        takenYear: meta.takenAt ? new Date(meta.takenAt).getFullYear() : null,
-        caption: meta.caption || null,
-        albumId,
-        peopleIds,
-        originalName: uf.file.name,
-      }),
-    })
-
-    updateMeta(uf.file.name, { saved: true })
   }
 
   const doneFiles = files.filter((f) => f.status === "done")

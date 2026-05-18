@@ -11,7 +11,7 @@ import MergeAlbumButton from "@/components/albums/MergeAlbumButton"
 export default async function AlbumPage({ params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) redirect("/login")
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
 
   const album = await prisma.album.findUnique({
     where: { id: params.id },

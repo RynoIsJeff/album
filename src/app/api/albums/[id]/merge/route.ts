@@ -8,7 +8,7 @@ export async function POST(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { targetAlbumId } = await req.json()

@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { PhotoSummary } from "@/types"
 import { formatDate } from "@/lib/utils"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   photo: PhotoSummary
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, selected, onSelect }: Props) {
+  const addToast = useToast()
   const src = photo.thumbUrl || photo.blobUrl
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
@@ -24,7 +26,12 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
     e.stopPropagation()
     if (!confirm("Delete this photo? This cannot be undone.")) return
     const res = await fetch(`/api/photos/${photo.id}`, { method: "DELETE" })
-    if (res.ok) onDelete?.(photo.id)
+    if (res.ok) {
+      addToast("Photo deleted", "success")
+      onDelete?.(photo.id)
+    } else {
+      addToast("Failed to delete photo", "error")
+    }
   }
 
   const handleClick = () => {

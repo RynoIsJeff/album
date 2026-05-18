@@ -4,13 +4,14 @@ import { prisma } from "@/lib/db"
 import Header from "@/components/layout/Header"
 import MobileNav from "@/components/layout/MobileNav"
 import DeleteAlbumButton from "@/components/albums/DeleteAlbumButton"
+import CreateAlbumButton from "@/components/albums/CreateAlbumButton"
 import Link from "next/link"
 import Image from "next/image"
 
 export default async function AlbumsPage() {
   const session = await auth()
   if (!session) redirect("/login")
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
 
   const albums = await prisma.album.findMany({
     orderBy: { name: "asc" },
@@ -28,7 +29,10 @@ export default async function AlbumsPage() {
     <div className="min-h-screen pb-16 md:pb-0" style={{ background: "var(--background)" }}>
       <Header />
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-        <h1 className="font-serif text-3xl font-bold mb-6">Albums</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="font-serif text-3xl font-bold">Albums</h1>
+          {isAdmin && <CreateAlbumButton />}
+        </div>
         {albums.length === 0 ? (
           <p className="text-center py-20" style={{ color: "var(--muted)" }}>
             No albums yet. Photos will be grouped into albums as you upload them.

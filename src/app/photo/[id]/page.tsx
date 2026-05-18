@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function PhotoDetailPage({ params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) redirect("/login")
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
 
   const photo = await prisma.photo.findUnique({
     where: { id: params.id },

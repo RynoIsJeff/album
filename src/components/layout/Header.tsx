@@ -1,13 +1,14 @@
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import SearchBar from "@/components/search/SearchBar"
+import LogoutButton from "@/components/auth/LogoutButton"
 import { Suspense } from "react"
 
 export default async function Header() {
   let isAdmin = false
   try {
     const session = await auth()
-    isAdmin = (session?.user as any)?.isAdmin ?? false
+    isAdmin = session?.user?.isAdmin ?? false
   } catch {
     // Render header without admin controls if session check fails
   }
@@ -40,6 +41,7 @@ export default async function Header() {
             Upload
           </Link>
         )}
+        <LogoutButton />
       </nav>
     </header>
   )

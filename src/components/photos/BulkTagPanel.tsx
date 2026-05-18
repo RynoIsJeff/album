@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   selectedCount: number
@@ -10,17 +11,16 @@ type Props = {
 }
 
 export default function BulkTagPanel({ selectedCount, onApply, onClear, onExit }: Props) {
+  const addToast = useToast()
   const [input, setInput] = useState("")
   const [names, setNames] = useState<string[]>([])
   const [applying, setApplying] = useState(false)
-  const [lastResult, setLastResult] = useState("")
 
   const addName = () => {
     const name = input.trim()
     if (!name || names.includes(name)) return
     setNames((prev) => [...prev, name])
     setInput("")
-    setLastResult("")
   }
 
   const removeName = (n: string) => setNames((prev) => prev.filter((x) => x !== n))
@@ -28,13 +28,18 @@ export default function BulkTagPanel({ selectedCount, onApply, onClear, onExit }
   const handleApply = async () => {
     if (!selectedCount || !names.length) return
     setApplying(true)
-    setLastResult("")
-    await onApply(names)
-    setLastResult(
-      `✓ Tagged ${selectedCount} photo${selectedCount !== 1 ? "s" : ""} with: ${names.join(", ")}`
-    )
-    setNames([])
-    setApplying(false)
+    try {
+      await onApply(names)
+      addToast(
+        `Tagged ${selectedCount} photo${selectedCount !== 1 ? "s" : ""} with: ${names.join(", ")}`,
+        "success"
+      )
+      setNames([])
+    } catch {
+      addToast("Failed to apply tags. Please try again.", "error")
+    } finally {
+      setApplying(false)
+    }
   }
 
   const canApply = selectedCount > 0 && names.length > 0 && !applying
@@ -72,10 +77,6 @@ export default function BulkTagPanel({ selectedCount, onApply, onClear, onExit }
           </button>
         </div>
 
-        {/* Success feedback */}
-        {lastResult && (
-          <p className="text-sm text-green-700 font-medium">{lastResult}</p>
-        )}
 
         {/* People input row */}
         <div className="flex gap-2 flex-wrap">

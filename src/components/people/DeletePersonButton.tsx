@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/context/ToastContext"
 
 type Props = {
   personId: string
@@ -17,6 +18,7 @@ export default function DeletePersonButton({
   variant = "icon",
 }: Props) {
   const router = useRouter()
+  const addToast = useToast()
   const [deleting, setDeleting] = useState(false)
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -30,10 +32,10 @@ export default function DeletePersonButton({
     setDeleting(true)
     const res = await fetch(`/api/people/${personId}`, { method: "DELETE" })
     if (res.ok) {
+      addToast(`"${personName}" removed`, "success")
       router.push("/people")
-      router.refresh()
     } else {
-      alert("Failed to remove. Please try again.")
+      addToast("Failed to remove. Please try again.", "error")
       setDeleting(false)
     }
   }

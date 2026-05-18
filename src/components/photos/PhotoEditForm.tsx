@@ -54,6 +54,7 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: trimmed }),
           })
+          if (!r.ok) throw new Error("Failed to create album")
           albumId = (await r.json()).id
         }
       }
@@ -66,6 +67,7 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         })
+        if (!r.ok) throw new Error(`Failed to resolve person: ${name}`)
         peopleIds.push((await r.json()).id)
       }
 

@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(session.user as any)?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!session.user?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { name, description } = await req.json()
   const album = await prisma.album.update({
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isAdmin = (session.user as any)?.isAdmin
+  const isAdmin = session.user?.isAdmin
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   await prisma.album.delete({ where: { id: params.id } })

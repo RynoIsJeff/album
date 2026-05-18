@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, Suspense } from "react"
 import PhotoLightbox from "@/components/photos/PhotoLightbox"
 import TimelineGroup from "./TimelineGroup"
 import InfiniteScroller from "@/components/photos/InfiniteScroller"
 import BulkTagPanel from "@/components/photos/BulkTagPanel"
+import FilterChips from "./FilterChips"
 import { PhotoSummary, YearCount } from "@/types"
 import { groupByYear } from "@/lib/utils"
 
@@ -14,6 +15,8 @@ type Props = {
   searchParams?: Record<string, string>
   isAdmin?: boolean
   yearCounts?: YearCount[]
+  personName?: string
+  albumName?: string
 }
 
 export default function TimelineClient({
@@ -22,6 +25,8 @@ export default function TimelineClient({
   searchParams,
   isAdmin,
   yearCounts = [],
+  personName,
+  albumName,
 }: Props) {
   const [photos, setPhotos] = useState<PhotoSummary[]>(initialPhotos)
   const [cursor, setCursor] = useState<string | null>(initialCursor)
@@ -35,12 +40,23 @@ export default function TimelineClient({
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return
     setLoading(true)
-    const params = new URLSearchParams({ cursor, ...(searchParams || {}) })
-    const res = await fetch(`/api/photos?${params}`)
-    const data = await res.json()
-    setPhotos((prev) => [...prev, ...data.photos])
-    setCursor(data.nextCursor)
-    setLoading(false)
+    try {
+      // Strip display-only keys that the API doesn't accept
+      const apiParams = Object.fromEntries(
+        Object.entries(searchParams || {}).filter(([k]) => !["personName", "albumName"].includes(k))
+      )
+      const params = new URLSearchParams({ cursor, ...apiParams })
+      const res = await fetch(`/api/photos?${params}`)
+      if (!res.ok) throw new Error("Failed to load photos")
+      const data = await res.json()
+      setPhotos((prev) => [...prev, ...data.photos])
+      setCursor(data.nextCursor)
+    } catch {
+      // Network/server error — stop trying to load more so the spinner clears
+      setCursor(null)
+    } finally {
+      setLoading(false)
+    }
   }, [cursor, loading, searchParams])
 
   const handleDelete = useCallback((id: string) => {
@@ -75,11 +91,12 @@ export default function TimelineClient({
   const handleBulkTag = useCallback(async (peopleNames: string[]) => {
     const photoIds = Array.from(selectedIds)
     if (!photoIds.length || !peopleNames.length) return
-    await fetch("/api/photos/tag", {
+    const res = await fetch("/api/photos/tag", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photoIds, peopleNames }),
     })
+    if (!res.ok) throw new Error("Failed to apply tags")
     // Clear selection after successful tag
     setSelectedIds(new Set())
   }, [selectedIds])
@@ -115,6 +132,20 @@ export default function TimelineClient({
             </span>
           )}
         </div>
+      )}
+
+      {/* Active filter chips */}
+      {searchParams && Object.keys(searchParams).filter(k => !['personName','albumName'].includes(k)).length > 0 && (
+        <Suspense fallback={null}>
+          <FilterChips
+            q={searchParams.q}
+            year={searchParams.year}
+            personId={searchParams.personId}
+            personName={personName}
+            albumId={searchParams.albumId}
+            albumName={albumName}
+          />
+        </Suspense>
       )}
 
       {/* Mobile year pills — hidden on lg where the sidebar shows */}
@@ -180,6 +211,8 @@ export default function TimelineClient({
           isAdmin={isAdmin}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
+          photoIndex={lightboxIndex + 1}
+          totalPhotos={photos.length}
         />
       )}
 

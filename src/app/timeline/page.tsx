@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/db"
 import Header from "@/components/layout/Header"
 import MobileNav from "@/components/layout/MobileNav"
-import YearSidebar from "@/components/timeline/YearSidebar"
+import ScrollspyYearSidebar from "@/components/timeline/ScrollspyYearSidebar"
 import TimelineClient from "@/components/timeline/TimelineClient"
 import SearchBar from "@/components/search/SearchBar"
 import { YearCount } from "@/types"
@@ -27,7 +27,7 @@ export default async function TimelinePage({
     const session = await auth()
     if (!session) redirect("/login")
 
-    isAdmin = (session.user as any)?.isAdmin ?? false
+    isAdmin = session.user?.isAdmin ?? false
     const { q, year, personId, albumId } = searchParams
     const yearNum = year ? parseInt(year) : undefined
 
@@ -112,6 +112,16 @@ export default async function TimelinePage({
     activeSearchParams = Object.fromEntries(
       Object.entries({ q, year, personId, albumId }).filter(([, v]) => v != null) as [string, string][]
     )
+
+    // Resolve display names for filter chips (after activeSearchParams is set)
+    if (personId) {
+      const person = await prisma.person.findUnique({ where: { id: personId }, select: { name: true } })
+      if (person) activeSearchParams.personName = person.name
+    }
+    if (albumId) {
+      const album = await prisma.album.findUnique({ where: { id: albumId }, select: { name: true } })
+      if (album) activeSearchParams.albumName = album.name
+    }
   } catch (err: any) {
     // Let Next.js handle redirects normally
     if (err?.digest?.startsWith("NEXT_REDIRECT")) throw err
@@ -141,7 +151,7 @@ export default async function TimelinePage({
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 flex gap-8">
         {/* Year sidebar */}
         <aside className="w-28 shrink-0">
-          <YearSidebar years={yearCounts} />
+          <ScrollspyYearSidebar years={yearCounts} />
         </aside>
 
         {/* Main content */}
@@ -153,6 +163,8 @@ export default async function TimelinePage({
               searchParams={activeSearchParams}
               isAdmin={isAdmin}
               yearCounts={yearCounts}
+              personName={activeSearchParams.personName}
+              albumName={activeSearchParams.albumName}
             />
           </Suspense>
         </main>

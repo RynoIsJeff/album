@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 
 type Props = {
   isAdmin?: boolean
@@ -71,6 +72,18 @@ export default function MobileNav({ isAdmin }: Props) {
           Upload
         </Link>
       )}
+      <button
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className="flex-1 flex flex-col items-center gap-0.5 py-2 text-xs transition-colors"
+        style={{ color: "var(--muted)" }}
+        aria-label="Log out"
+      >
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Log out
+      </button>
     </nav>
   )
 }
