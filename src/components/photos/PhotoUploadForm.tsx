@@ -200,6 +200,10 @@ export default function PhotoUploadForm() {
           ? (meta.takenYear ? parseInt(meta.takenYear) : null)
           : (meta.takenAt ? new Date(meta.takenAt).getFullYear() : null)
 
+      // Capture click timestamp as position — assigned here (before any await) so it
+      // reflects the exact moment Save was clicked, regardless of network timing.
+      const albumPosition = albumId ? Date.now() : null
+
       const res = await fetch("/api/photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -212,6 +216,7 @@ export default function PhotoUploadForm() {
           takenYear,
           caption: meta.caption || null,
           albumId,
+          albumPosition,
           peopleIds,
           originalName: uf.file.name,
         }),
@@ -433,6 +438,9 @@ export default function PhotoUploadForm() {
                 >
                   Save to Album
                 </button>
+                <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+                  Save photos in the order you want them to appear when sorted by upload order
+                </p>
               </div>
             )}
           </div>

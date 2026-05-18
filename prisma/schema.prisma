@@ -21,9 +21,10 @@ model Photo {
   source       String      @default("browser")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  albumId      String?
-  album        Album?      @relation(fields: [albumId], references: [id])
-  peopleTags   PeopleTag[]
+  albumId       String?
+  albumPosition BigInt?
+  album         Album?      @relation(fields: [albumId], references: [id])
+  peopleTags    PeopleTag[]
 
   @@index([takenYear])
   @@index([takenAt])

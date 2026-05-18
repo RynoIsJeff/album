@@ -148,9 +148,9 @@ export default function TimelineClient({
         </Suspense>
       )}
 
-      {/* Mobile year pills — hidden on lg where the sidebar shows */}
+      {/* Mobile year pills — hidden on md+ where the sidebar shows */}
       {yearCounts.length > 0 && (
-        <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
+        <div className="md:hidden flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
           {yearCounts.map(({ takenYear, count }) => (
             <a
               key={takenYear}

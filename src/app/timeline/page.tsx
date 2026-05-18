@@ -149,13 +149,13 @@ export default async function TimelinePage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 flex gap-8">
-        {/* Year sidebar */}
-        <aside className="w-28 shrink-0">
+        {/* Year sidebar — desktop only */}
+        <aside className="hidden md:block w-28 shrink-0">
           <ScrollspyYearSidebar years={yearCounts} />
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 w-full">
           <Suspense fallback={<div className="text-sm" style={{ color: "var(--muted)" }}>Loading…</div>}>
             <TimelineClient
               initialPhotos={photos}

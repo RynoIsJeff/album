@@ -30,7 +30,10 @@ export default async function AlbumPage({
 
   const orderBy =
     sort === "upload"
-      ? [{ createdAt: "asc" as const }]
+      ? [
+          { albumPosition: { sort: "asc" as const, nulls: "last" as const } },
+          { createdAt: "asc" as const },
+        ]
       : [
           { takenAt: { sort: "desc" as const, nulls: "last" as const } },
           { createdAt: "desc" as const },
@@ -53,6 +56,7 @@ export default async function AlbumPage({
       source: true,
       createdAt: true,
       albumId: true,
+      albumPosition: true,
       album: { select: { id: true, name: true } },
       peopleTags: { include: { person: { select: { id: true, name: true } } } },
     },
@@ -74,6 +78,7 @@ export default async function AlbumPage({
     source: p.source,
     createdAt: p.createdAt.toISOString(),
     albumId: p.albumId ?? null,
+    albumPosition: p.albumPosition != null ? Number(p.albumPosition) : null,
     album: p.album ?? null,
     peopleTags: p.peopleTags,
   }))

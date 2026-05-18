@@ -39,7 +39,10 @@ export async function GET(req: NextRequest) {
 
   const orderBy =
     sort === "upload"
-      ? [{ createdAt: "asc" as const }]
+      ? [
+          { albumPosition: { sort: "asc" as const, nulls: "last" as const } },
+          { createdAt: "asc" as const },
+        ]
       : [
           { takenAt: { sort: "desc" as const, nulls: "last" as const } },
           { createdAt: "desc" as const },
@@ -82,6 +85,7 @@ export async function POST(req: NextRequest) {
     caption,
     originalName,
     albumId,
+    albumPosition,
     peopleIds,
   } = body
 
@@ -98,6 +102,7 @@ export async function POST(req: NextRequest) {
       caption: caption || null,
       originalName: originalName || null,
       albumId: albumId || null,
+      albumPosition: albumPosition ?? null,
       source: "browser",
       peopleTags: peopleIds?.length
         ? {
@@ -120,5 +125,7 @@ function serializePhoto(photo: any) {
     takenAt: photo.takenAt?.toISOString() ?? null,
     createdAt: photo.createdAt.toISOString(),
     updatedAt: photo.updatedAt?.toISOString() ?? null,
+    // BigInt isn't JSON-serialisable; convert to number (safe for timestamps ≤ 2^53)
+    albumPosition: photo.albumPosition != null ? Number(photo.albumPosition) : null,
   }
 }

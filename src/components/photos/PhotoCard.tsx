@@ -104,9 +104,9 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
           </button>
         )}
 
-        {/* "New this week" badge — bottom-left, only when not in tag mode */}
+        {/* "New this week" badge — top-left, only when not in tag mode */}
         {isNew && !tagMode && (
-          <div className="absolute bottom-2 left-2 z-10 px-1.5 py-0.5 rounded text-xs font-semibold text-white"
+          <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-xs font-semibold text-white"
             style={{ background: "rgba(21,128,61,0.85)", letterSpacing: "0.03em" }}>
             New
           </div>
