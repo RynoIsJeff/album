@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { upload } from "@vercel/blob/client"
 
@@ -66,9 +66,11 @@ export default function PhotoUploadForm() {
     if (res.ok) setAlbums(await res.json())
   }, [])
 
+  // Load albums immediately so the dropdown is ready before any file is dropped
+  useEffect(() => { fetchAlbums() }, [fetchAlbums])
+
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      await fetchAlbums()
       const newFiles: UploadedFile[] = acceptedFiles.map((f) => ({
         file: f,
         previewUrl: URL.createObjectURL(f),
@@ -163,16 +165,26 @@ export default function PhotoUploadForm() {
       peopleIds.push(person.id)
     }
 
-    // Find or create album
+    // Find existing album (case-insensitive) or create a new one
     let albumId: string | null = null
-    if (meta.albumName) {
-      const res = await fetch("/api/albums", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: meta.albumName }),
-      })
-      const album = await res.json()
-      albumId = album.id
+    const trimmedAlbumName = meta.albumName.trim()
+    if (trimmedAlbumName) {
+      const existing = albums.find(
+        (a) => a.name.toLowerCase() === trimmedAlbumName.toLowerCase()
+      )
+      if (existing) {
+        albumId = existing.id
+      } else {
+        const res = await fetch("/api/albums", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmedAlbumName }),
+        })
+        const album = await res.json()
+        albumId = album.id
+        // Add to local list so the next photo in this session can find it
+        setAlbums((prev) => [...prev, { id: album.id, name: album.name }])
+      }
     }
 
     await fetch("/api/photos", {
@@ -267,12 +279,19 @@ export default function PhotoUploadForm() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium block mb-1">Album</label>
+                    <label className="text-xs font-medium block mb-1">
+                      Album
+                      {albums.length > 0 && (
+                        <span className="font-normal ml-1" style={{ color: "var(--muted)" }}>
+                          — pick existing or type new
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={meta.albumName}
                       onChange={(e) => updateMeta(uf.file.name, { albumName: e.target.value })}
-                      placeholder="e.g. 1970s Holidays"
+                      placeholder={albums.length > 0 ? "Search albums…" : "e.g. 1970s Holidays"}
                       list={`albums-${uf.file.name}`}
                       className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
                       style={{ borderColor: "var(--border)" }}
@@ -280,6 +299,17 @@ export default function PhotoUploadForm() {
                     <datalist id={`albums-${uf.file.name}`}>
                       {albums.map((a) => <option key={a.id} value={a.name} />)}
                     </datalist>
+                    {/* Show matched existing album as a hint */}
+                    {meta.albumName.trim() && albums.some(
+                      (a) => a.name.toLowerCase() === meta.albumName.trim().toLowerCase()
+                    ) && (
+                      <p className="text-xs mt-1 text-green-700">✓ Will add to existing album</p>
+                    )}
+                    {meta.albumName.trim() && !albums.some(
+                      (a) => a.name.toLowerCase() === meta.albumName.trim().toLowerCase()
+                    ) && (
+                      <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>+ Will create new album</p>
+                    )}
                   </div>
                 </div>
                 <div>
