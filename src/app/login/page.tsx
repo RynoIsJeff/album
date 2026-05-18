@@ -3,8 +3,14 @@ import { auth } from "@/lib/auth"
 import LoginForm from "@/components/auth/LoginForm"
 
 export default async function LoginPage() {
-  const session = await auth()
-  if (session) redirect("/timeline")
+  // Wrap in try/catch — if AUTH_SECRET is missing the check throws,
+  // but we still want the login form to render rather than a 500.
+  try {
+    const session = await auth()
+    if (session) redirect("/timeline")
+  } catch {
+    // Show login form regardless
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--background)" }}>
