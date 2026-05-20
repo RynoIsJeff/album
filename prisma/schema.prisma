@@ -25,6 +25,7 @@ model Photo {
   albumPosition BigInt?
   album         Album?      @relation(fields: [albumId], references: [id])
   peopleTags    PeopleTag[]
+  personCovers  Person[]    @relation("PersonCoverPhoto")
 
   @@index([takenYear])
   @@index([takenAt])
@@ -42,10 +43,12 @@ model Album {
 }
 
 model Person {
-  id        String      @id @default(cuid())
-  name      String      @unique
-  createdAt DateTime    @default(now())
-  tags      PeopleTag[]
+  id           String      @id @default(cuid())
+  name         String      @unique
+  coverPhotoId String?
+  coverPhoto   Photo?      @relation("PersonCoverPhoto", fields: [coverPhotoId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  tags         PeopleTag[]
 
   @@index([name])
 }

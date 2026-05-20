@@ -14,6 +14,7 @@ export default async function PeoplePage() {
     orderBy: { name: "asc" },
     include: {
       _count: { select: { tags: true } },
+      coverPhoto: { select: { thumbUrl: true, blobUrl: true } },
       tags: {
         take: 1,
         orderBy: { photo: { createdAt: "desc" } },
@@ -34,7 +35,8 @@ export default async function PeoplePage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {people.map((person) => {
-              const cover = person.tags[0]?.photo
+              // Prefer explicitly chosen cover photo; fall back to most-recent tagged photo
+              const cover = person.coverPhoto ?? person.tags[0]?.photo
               return (
                 <PersonCard
                   key={person.id}

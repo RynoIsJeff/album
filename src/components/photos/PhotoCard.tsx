@@ -14,9 +14,12 @@ type Props = {
   tagMode?: boolean
   selected?: boolean
   onSelect?: (id: string) => void
+  // Person cover selection
+  onSetCover?: (photoId: string) => void
+  isCover?: boolean
 }
 
-export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, selected, onSelect }: Props) {
+export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, selected, onSelect, onSetCover, isCover }: Props) {
   const addToast = useToast()
   const src = photo.thumbUrl || photo.blobUrl
   const aspectRatio =
@@ -93,7 +96,7 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
         </div>
 
         {/* Admin delete button — top-right corner, appears on hover */}
-        {isAdmin && !tagMode && (
+        {isAdmin && !tagMode && !onSetCover && (
           <button
             onClick={handleDelete}
             className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-red-600 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-all"
@@ -102,6 +105,31 @@ export default function PhotoCard({ photo, onClick, isAdmin, onDelete, tagMode, 
           >
             🗑
           </button>
+        )}
+
+        {/* Profile photo selection mode */}
+        {onSetCover && !tagMode && (
+          <>
+            {isCover ? (
+              <div
+                className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+                style={{ background: "rgba(21,128,61,0.9)" }}
+              >
+                ✓ Profile photo
+              </div>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSetCover(photo.id) }}
+                className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Set as profile photo"
+                title="Set as profile photo"
+              >
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-black/60 hover:bg-black/80 transition-colors">
+                  Set as profile photo
+                </span>
+              </button>
+            )}
+          </>
         )}
 
         {/* "New this week" badge — top-left, only when not in tag mode */}

@@ -3,9 +3,9 @@ import { redirect, notFound } from "next/navigation"
 import { prisma } from "@/lib/db"
 import Header from "@/components/layout/Header"
 import MobileNav from "@/components/layout/MobileNav"
-import PhotoGrid from "@/components/photos/PhotoGrid"
 import RenamePersonForm from "@/components/people/RenamePersonForm"
 import DeletePersonButton from "@/components/people/DeletePersonButton"
+import PersonPageClient from "@/components/people/PersonPageClient"
 
 export default async function PersonPage({ params }: { params: { id: string } }) {
   const session = await auth()
@@ -14,9 +14,14 @@ export default async function PersonPage({ params }: { params: { id: string } })
 
   const person = await prisma.person.findUnique({
     where: { id: params.id },
-    include: { _count: { select: { tags: true } } },
+    include: {
+      _count: { select: { tags: true } },
+      coverPhoto: { select: { thumbUrl: true, blobUrl: true } },
+    },
   })
   if (!person) notFound()
+
+  const coverUrl = person.coverPhoto?.thumbUrl || person.coverPhoto?.blobUrl || null
 
   const rawPhotos = await prisma.photo.findMany({
     where: { peopleTags: { some: { personId: params.id } } },
@@ -56,6 +61,7 @@ export default async function PersonPage({ params }: { params: { id: string } })
     source: p.source,
     createdAt: p.createdAt.toISOString(),
     albumId: p.albumId ?? null,
+    albumPosition: null,
     album: p.album ?? null,
     peopleTags: p.peopleTags,
   }))
@@ -66,12 +72,16 @@ export default async function PersonPage({ params }: { params: { id: string } })
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div
-              className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-xl font-bold mt-1"
-              style={{ background: "var(--sepia-light)", color: "var(--muted)" }}
-            >
-              {person.name[0].toUpperCase()}
-            </div>
+            {/* Avatar is rendered inside PersonPageClient so it can update live */}
+            <PersonPageClient
+              personId={person.id}
+              personName={person.name}
+              initialCoverPhotoId={person.coverPhotoId ?? null}
+              initialCoverUrl={coverUrl}
+              photos={photos}
+              nextCursor={hasMore ? photos[photos.length - 1].id : null}
+              isAdmin={isAdmin}
+            />
             <div>
               <RenamePersonForm
                 personId={person.id}
@@ -93,19 +103,12 @@ export default async function PersonPage({ params }: { params: { id: string } })
           )}
         </div>
 
-        {photos.length === 0 ? (
+        {photos.length === 0 && (
           <div className="text-center py-20" style={{ color: "var(--muted)" }}>
             <p className="text-4xl mb-3">👤</p>
             <p className="text-lg font-medium">No photos yet</p>
             <p className="text-sm mt-1">Tag {person.name} when uploading or editing photos</p>
           </div>
-        ) : (
-          <PhotoGrid
-            initialPhotos={photos}
-            nextCursor={hasMore ? photos[photos.length - 1].id : null}
-            searchParams={{ personId: params.id }}
-            isAdmin={isAdmin}
-          />
         )}
       </div>
       <MobileNav isAdmin={isAdmin} />

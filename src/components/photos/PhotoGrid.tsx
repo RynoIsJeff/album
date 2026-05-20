@@ -11,9 +11,11 @@ type Props = {
   nextCursor: string | null
   searchParams?: Record<string, string>
   isAdmin?: boolean
+  coverPhotoId?: string | null
+  onSetCover?: (photoId: string) => void
 }
 
-export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, searchParams, isAdmin }: Props) {
+export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, searchParams, isAdmin, coverPhotoId, onSetCover }: Props) {
   const [photos, setPhotos] = useState<PhotoSummary[]>(initialPhotos)
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [loading, setLoading] = useState(false)
@@ -68,7 +70,15 @@ export default function PhotoGrid({ initialPhotos, nextCursor: initialCursor, se
       <InfiniteScroller onLoadMore={loadMore} hasMore={!!cursor} isLoading={loading}>
         <div className="masonry-grid">
           {photos.map((photo) => (
-            <PhotoCard key={photo.id} photo={photo} onClick={openLightbox} isAdmin={isAdmin} onDelete={handleDelete} />
+            <PhotoCard
+              key={photo.id}
+              photo={photo}
+              onClick={onSetCover ? undefined : openLightbox}
+              isAdmin={isAdmin}
+              onDelete={onSetCover ? undefined : handleDelete}
+              onSetCover={onSetCover}
+              isCover={coverPhotoId === photo.id}
+            />
           ))}
         </div>
         {photos.length === 0 && !loading && (

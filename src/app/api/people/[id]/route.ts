@@ -20,7 +20,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const isAdmin = session.user?.isAdmin
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { name } = await req.json()
+  const body = await req.json()
+
+  // Cover photo update — no name required
+  if (body.coverPhotoId !== undefined) {
+    const person = await prisma.person.update({
+      where: { id: params.id },
+      data: { coverPhotoId: body.coverPhotoId },
+    })
+    return NextResponse.json(person)
+  }
+
+  const { name } = body
   if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 })
 
   try {
