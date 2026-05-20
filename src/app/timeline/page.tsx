@@ -9,7 +9,7 @@ import TimelineClient from "@/components/timeline/TimelineClient"
 import SearchBar from "@/components/search/SearchBar"
 import { YearCount } from "@/types"
 
-type SearchParams = { q?: string; year?: string; personId?: string; albumId?: string }
+type SearchParams = { q?: string; year?: string; personId?: string; albumId?: string; noAlbum?: string }
 
 export default async function TimelinePage({
   searchParams,
@@ -28,12 +28,13 @@ export default async function TimelinePage({
     if (!session) redirect("/login")
 
     isAdmin = session.user?.isAdmin ?? false
-    const { q, year, personId, albumId } = searchParams
+    const { q, year, personId, albumId, noAlbum } = searchParams
     const yearNum = year ? parseInt(year) : undefined
 
     const where = {
       ...(yearNum ? { takenYear: yearNum } : {}),
       ...(albumId ? { albumId } : {}),
+      ...(noAlbum === "true" ? { albumId: null } : {}),
       ...(personId ? { peopleTags: { some: { personId } } } : {}),
       ...(q
         ? {
@@ -110,7 +111,7 @@ export default async function TimelinePage({
     nextCursor = hasMore ? photos[photos.length - 1].id : null
 
     activeSearchParams = Object.fromEntries(
-      Object.entries({ q, year, personId, albumId }).filter(([, v]) => v != null) as [string, string][]
+      Object.entries({ q, year, personId, albumId, noAlbum }).filter(([, v]) => v != null) as [string, string][]
     )
 
     // Resolve display names for filter chips (after activeSearchParams is set)

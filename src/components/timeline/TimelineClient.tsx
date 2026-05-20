@@ -144,6 +144,7 @@ export default function TimelineClient({
             personName={personName}
             albumId={searchParams.albumId}
             albumName={albumName}
+            noAlbum={searchParams.noAlbum}
           />
         </Suspense>
       )}

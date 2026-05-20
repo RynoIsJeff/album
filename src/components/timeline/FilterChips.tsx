@@ -9,9 +9,10 @@ type Props = {
   personName?: string
   albumId?: string
   albumName?: string
+  noAlbum?: string
 }
 
-export default function FilterChips({ q, year, personId, personName, albumId, albumName }: Props) {
+export default function FilterChips({ q, year, personId, personName, albumId, albumName, noAlbum }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -27,6 +28,7 @@ export default function FilterChips({ q, year, personId, personName, albumId, al
   if (year) chips.push({ key: "year", label: `Year: ${year}` })
   if (personId) chips.push({ key: "personId", label: `Person: ${personName ?? personId}` })
   if (albumId) chips.push({ key: "albumId", label: `Album: ${albumName ?? albumId}` })
+  if (noAlbum === "true") chips.push({ key: "noAlbum", label: "No album" })
 
   if (chips.length === 0) return null
 
