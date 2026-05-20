@@ -157,10 +157,16 @@ export default function PhotoUploadForm() {
     if (uf.status !== "done") return
     const meta = metas[uf.file.name]
 
+    // Auto-flush: if the user typed a name but didn't press Enter, include it anyway
+    const pendingInput = meta.peopleInput.trim()
+    const allPeopleNames = pendingInput && !meta.peopleNames.includes(pendingInput)
+      ? [...meta.peopleNames, pendingInput]
+      : meta.peopleNames
+
     try {
       // Find or create people
       const peopleIds: string[] = []
-      for (const name of meta.peopleNames) {
+      for (const name of allPeopleNames) {
         const res = await fetch("/api/people", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

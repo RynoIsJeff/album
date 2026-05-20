@@ -63,9 +63,15 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
         }
       }
 
+      // Auto-flush: include any name still typed in the input but not yet added
+      const pendingInput = peopleInput.trim()
+      const allPeopleNames = pendingInput && !peopleNames.includes(pendingInput)
+        ? [...peopleNames, pendingInput]
+        : peopleNames
+
       // Resolve people
       const peopleIds: string[] = []
-      for (const name of peopleNames) {
+      for (const name of allPeopleNames) {
         const r = await fetch("/api/people", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
