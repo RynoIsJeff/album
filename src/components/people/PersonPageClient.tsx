@@ -3,6 +3,8 @@
 import { useState, useCallback } from "react"
 import Image from "next/image"
 import PhotoGrid from "@/components/photos/PhotoGrid"
+import RenamePersonForm from "@/components/people/RenamePersonForm"
+import DeletePersonButton from "@/components/people/DeletePersonButton"
 import { useToast } from "@/context/ToastContext"
 import { PhotoSummary } from "@/types"
 
@@ -13,6 +15,7 @@ type Props = {
   initialCoverUrl: string | null
   photos: PhotoSummary[]
   nextCursor: string | null
+  photoCount: number
   isAdmin?: boolean
 }
 
@@ -23,6 +26,7 @@ export default function PersonPageClient({
   initialCoverUrl,
   photos,
   nextCursor,
+  photoCount,
   isAdmin,
 }: Props) {
   const addToast = useToast()
@@ -52,52 +56,80 @@ export default function PersonPageClient({
 
   return (
     <>
-      {/* Avatar */}
-      <div className="relative shrink-0 mt-1">
-        <div className="w-14 h-14 rounded-full overflow-hidden"
-          style={{ background: "var(--sepia-light)" }}>
-          {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt={personName}
-              width={56}
-              height={56}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xl font-bold"
-              style={{ color: "var(--muted)" }}>
-              {personName[0].toUpperCase()}
+      {/* Header row: avatar + name/count + delete */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <div className="relative shrink-0 mt-1">
+            <div
+              className="w-14 h-14 rounded-full overflow-hidden"
+              style={{ background: "var(--sepia-light)" }}
+            >
+              {coverUrl ? (
+                <Image
+                  src={coverUrl}
+                  alt={personName}
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-xl font-bold"
+                  style={{ color: "var(--muted)" }}
+                >
+                  {personName[0].toUpperCase()}
+                </div>
+              )}
             </div>
-          )}
+            {isAdmin && photos.length > 0 && (
+              <button
+                onClick={() => setSelectingCover((v) => !v)}
+                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-white text-xs transition-colors"
+                style={{
+                  background: selectingCover ? "#b45309" : "#292524",
+                  borderColor: "var(--background)",
+                }}
+                title={selectingCover ? "Cancel" : "Change profile photo"}
+              >
+                {selectingCover ? "✕" : "✎"}
+              </button>
+            )}
+          </div>
+
+          {/* Name + photo count */}
+          <div>
+            <RenamePersonForm
+              personId={personId}
+              initialName={personName}
+              isAdmin={isAdmin}
+            />
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              {photoCount} {photoCount === 1 ? "photo" : "photos"}
+            </p>
+          </div>
         </div>
 
-        {/* Change photo button */}
-        {isAdmin && photos.length > 0 && (
-          <button
-            onClick={() => setSelectingCover((v) => !v)}
-            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-white text-xs transition-colors"
-            style={{
-              background: selectingCover ? "#b45309" : "#292524",
-              borderColor: "var(--background)",
-            }}
-            title={selectingCover ? "Cancel" : "Change profile photo"}
-          >
-            {selectingCover ? "✕" : "✎"}
-          </button>
+        {isAdmin && (
+          <DeletePersonButton
+            personId={personId}
+            personName={personName}
+            photoCount={photoCount}
+            variant="full"
+          />
         )}
       </div>
 
-      {/* Banner shown while selecting */}
+      {/* Cover-select banner */}
       {selectingCover && (
         <div
-          className="col-span-full mt-4 mb-2 px-4 py-2.5 rounded-lg text-sm flex items-center justify-between"
+          className="mb-4 px-4 py-2.5 rounded-lg text-sm flex items-center justify-between"
           style={{ background: "var(--sepia-light)", color: "var(--foreground)" }}
         >
           <span>Click any photo to use it as {personName}&apos;s profile picture</span>
           <button
             onClick={() => setSelectingCover(false)}
-            className="text-xs underline ml-4"
+            className="text-xs underline ml-4 shrink-0"
             style={{ color: "var(--muted)" }}
           >
             Cancel
@@ -106,7 +138,13 @@ export default function PersonPageClient({
       )}
 
       {/* Photo grid */}
-      <div className="col-span-full">
+      {photos.length === 0 ? (
+        <div className="text-center py-20" style={{ color: "var(--muted)" }}>
+          <p className="text-4xl mb-3">👤</p>
+          <p className="text-lg font-medium">No photos yet</p>
+          <p className="text-sm mt-1">Tag {personName} when uploading or editing photos</p>
+        </div>
+      ) : (
         <PhotoGrid
           initialPhotos={photos}
           nextCursor={nextCursor}
@@ -115,7 +153,7 @@ export default function PersonPageClient({
           coverPhotoId={coverPhotoId}
           onSetCover={selectingCover ? handleSetCover : undefined}
         />
-      </div>
+      )}
     </>
   )
 }
