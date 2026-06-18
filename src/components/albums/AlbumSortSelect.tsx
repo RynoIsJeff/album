@@ -16,8 +16,8 @@ export default function AlbumSortSelect({ current }: { current: SortValue }) {
 
   const handleChange = (value: SortValue) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (value === "date") {
-      params.delete("sort")
+    if (value === "upload") {
+      params.delete("sort") // upload is the default — keep URL clean
     } else {
       params.set("sort", value)
     }

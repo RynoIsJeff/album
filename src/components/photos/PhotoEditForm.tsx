@@ -111,12 +111,12 @@ export default function PhotoEditForm({ photo, onSave, onCancel }: Props) {
     <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
       <div>
         <label className="text-xs font-medium text-white/70 block mb-1">Caption</label>
-        <input
-          type="text"
+        <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           placeholder="What's happening in this photo?"
-          className="w-full px-3 py-2 text-sm rounded-lg bg-white/10 text-white placeholder-white/30 border border-white/20 outline-none focus:border-white/50"
+          rows={3}
+          className="w-full px-3 py-2 text-sm rounded-lg bg-white/10 text-white placeholder-white/30 border border-white/20 outline-none focus:border-white/50 resize-y"
         />
       </div>
 

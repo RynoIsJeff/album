@@ -9,6 +9,8 @@ type Props = {
   onChange: (val: string) => void
   onAdd: (name: string) => void
   excludeNames: string[]
+  /** Names added this upload session but not yet saved — shown as suggestions immediately */
+  additionalSuggestions?: string[]
   /** Light styling (upload form) vs dark overlay styling (lightbox edit form) */
   variant?: "light" | "dark"
 }
@@ -18,6 +20,7 @@ export default function PeopleTagInput({
   onChange,
   onAdd,
   excludeNames,
+  additionalSuggestions = [],
   variant = "light",
 }: Props) {
   const [allPeople, setAllPeople] = useState<Person[]>([])
@@ -33,13 +36,21 @@ export default function PeopleTagInput({
   }, [])
 
   const trimmed = peopleInput.trim().toLowerCase()
+  const excludeLower = excludeNames.map((n) => n.toLowerCase())
 
-  // Suggestions: existing people whose name contains the typed text,
-  // excluding already-tagged names
-  const suggestions = allPeople.filter(
-    (p) =>
-      !excludeNames.map((n) => n.toLowerCase()).includes(p.name.toLowerCase()) &&
-      (trimmed === "" || p.name.toLowerCase().includes(trimmed))
+  // Merge session-level pending names with saved people, deduplicating
+  const savedNames = new Set(allPeople.map((p) => p.name.toLowerCase()))
+  const sessionOnly = additionalSuggestions
+    .filter((n) => !savedNames.has(n.toLowerCase()) && !excludeLower.includes(n.toLowerCase()))
+    .map((n) => ({ id: `session:${n}`, name: n }))
+
+  const allSuggestions = [
+    ...sessionOnly,
+    ...allPeople.filter((p) => !excludeLower.includes(p.name.toLowerCase())),
+  ]
+
+  const suggestions = allSuggestions.filter(
+    (p) => trimmed === "" || p.name.toLowerCase().includes(trimmed)
   )
 
   const handleAdd = (name: string) => {

@@ -20,7 +20,7 @@ export default async function AlbumPage({
   const session = await auth()
   if (!session) redirect("/login")
   const isAdmin = session.user?.isAdmin
-  const sort = searchParams?.sort === "upload" ? "upload" : "date"
+  const sort = searchParams?.sort === "date" ? "date" : "upload"
 
   const album = await prisma.album.findUnique({
     where: { id: params.id },

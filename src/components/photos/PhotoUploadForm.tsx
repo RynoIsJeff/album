@@ -63,6 +63,8 @@ export default function PhotoUploadForm() {
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [metas, setMetas] = useState<Record<string, MetaState>>({})
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([])
+  // Names typed this session but not yet saved — shared across all upload cards
+  const [sessionPeople, setSessionPeople] = useState<string[]>([])
 
   const fetchAlbums = useCallback(async () => {
     const res = await fetch("/api/albums")
@@ -145,6 +147,10 @@ export default function PhotoUploadForm() {
     const meta = metas[fileName]
     if (!name || meta.peopleNames.includes(name)) return
     updateMeta(fileName, { peopleNames: [...meta.peopleNames, name], peopleInput: "" })
+    // Share this name with all other upload cards immediately
+    setSessionPeople((prev) =>
+      prev.some((n) => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name]
+    )
   }
 
   const removePerson = (fileName: string, name: string) => {
@@ -385,12 +391,12 @@ export default function PhotoUploadForm() {
                 </div>
                 <div>
                   <label className="text-xs font-medium block mb-1">Caption</label>
-                  <input
-                    type="text"
+                  <textarea
                     value={meta.caption}
                     onChange={(e) => updateMeta(uf.file.name, { caption: e.target.value })}
                     placeholder="What's happening in this photo?"
-                    className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                    rows={2}
+                    className="w-full px-3 py-2 text-sm rounded-lg border outline-none resize-y"
                     style={{ borderColor: "var(--border)" }}
                   />
                 </div>
@@ -401,6 +407,7 @@ export default function PhotoUploadForm() {
                     onChange={(val) => updateMeta(uf.file.name, { peopleInput: val })}
                     onAdd={(name) => addPerson(uf.file.name, name)}
                     excludeNames={meta.peopleNames}
+                    additionalSuggestions={sessionPeople}
                     variant="light"
                   />
                   {meta.peopleNames.length > 0 && (
