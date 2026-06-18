@@ -102,25 +102,25 @@ dialog[open] {
   animation: toast-slide-in 0.2s ease forwards;
 }
 
-/* Lightbox page-flip animations */
-@keyframes page-flip-exit-next {
-  from { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
-  to   { transform: perspective(1000px) rotateY(-90deg); opacity: 0; }
+/* Lightbox slide transition */
+@keyframes lb-slide-out-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
 }
-@keyframes page-flip-enter-next {
-  from { transform: perspective(1000px) rotateY(90deg); opacity: 0; }
-  to   { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
+@keyframes lb-slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
-@keyframes page-flip-exit-prev {
-  from { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
-  to   { transform: perspective(1000px) rotateY(90deg); opacity: 0; }
+@keyframes lb-slide-out-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
 }
-@keyframes page-flip-enter-prev {
-  from { transform: perspective(1000px) rotateY(-90deg); opacity: 0; }
-  to   { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
+@keyframes lb-slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
 }
 
-.page-flip-exit-next  { animation: page-flip-exit-next  220ms ease-in  forwards; }
-.page-flip-enter-next { animation: page-flip-enter-next 220ms ease-out forwards; }
-.page-flip-exit-prev  { animation: page-flip-exit-prev  220ms ease-in  forwards; }
-.page-flip-enter-prev { animation: page-flip-enter-prev 220ms ease-out forwards; }
+.lb-slide-out-left  { animation: lb-slide-out-left  320ms ease-in-out forwards; }
+.lb-slide-in-right  { animation: lb-slide-in-right  320ms ease-in-out forwards; }
+.lb-slide-out-right { animation: lb-slide-out-right 320ms ease-in-out forwards; }
+.lb-slide-in-left   { animation: lb-slide-in-left   320ms ease-in-out forwards; }

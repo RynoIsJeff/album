@@ -56,7 +56,10 @@ export default async function TimelinePage({
     const [rawPhotos, rawYearCounts] = await Promise.all([
       prisma.photo.findMany({
         where,
-        orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [
+          { takenAt: { sort: "desc", nulls: "last" } },
+          { createdAt: "desc" },
+        ],
         take: 31,
         select: {
           id: true,

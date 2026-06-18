@@ -45,41 +45,39 @@ export default function PhotoLightbox({
   const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const addToast = useToast()
 
-  // Keep latest onNext/onPrev in refs so navigate() doesn't go stale
+  // Keep latest callbacks in refs so navigate() never goes stale
   const onNextRef = useRef(onNext)
   const onPrevRef = useRef(onPrev)
   useEffect(() => { onNextRef.current = onNext }, [onNext])
   useEffect(() => { onPrevRef.current = onPrev }, [onPrev])
 
-  // Flip animation state
+  // Slide animation state
   const [displayedPhoto, setDisplayedPhoto] = useState(photo)
-  const [flipPhase, setFlipPhase] = useState<'idle' | 'exit' | 'enter'>('idle')
-  const [flipDir, setFlipDir] = useState<'next' | 'prev'>('next')
-  // True while we're waiting for the photo prop to change after calling onNext/onPrev
-  const flipPendingRef = useRef(false)
+  const [outgoingPhoto, setOutgoingPhoto] = useState<PhotoSummary | null>(null)
+  const [animDir, setAnimDir] = useState<'next' | 'prev'>('next')
+  const [animating, setAnimating] = useState(false)
+  const animPendingRef = useRef(false)
 
-  const flipClass = flipPhase === 'idle' ? '' : `page-flip-${flipPhase}-${flipDir}`
-
-  // Navigate with flip animation: exit → parent updates photo prop → enter
+  // Navigate: capture the outgoing photo, fire onNext/onPrev immediately so both
+  // photos are in the DOM at the same time and slide past each other.
   const navigate = useCallback((dir: 'next' | 'prev') => {
-    if (flipPendingRef.current) return   // already animating
+    if (animPendingRef.current) return  // already mid-slide
     if (dir === 'next' && !hasNext) return
     if (dir === 'prev' && !hasPrev) return
 
-    flipPendingRef.current = true
-    setFlipDir(dir)
-    setFlipPhase('exit')
+    animPendingRef.current = true
+    setAnimDir(dir)
+    setOutgoingPhoto(displayedPhoto)
+    setAnimating(true)
 
-    setTimeout(() => {
-      if (dir === 'next') onNextRef.current?.()
-      else onPrevRef.current?.()
-    }, 220)
-  }, [hasNext, hasPrev])
+    if (dir === 'next') onNextRef.current?.()
+    else onPrevRef.current?.()
+  }, [hasNext, hasPrev, displayedPhoto])
 
   const navigateRef = useRef(navigate)
   useEffect(() => { navigateRef.current = navigate }, [navigate])
 
-  // When the photo prop changes (parent processed the nav call), start enter phase
+  // When photo prop changes (parent processed the nav), swap the incoming photo in
   useEffect(() => {
     setEditing(false)
     setCaptionExpanded(false)
@@ -88,16 +86,19 @@ export default function PhotoLightbox({
     setDragging(false)
     dragStart.current = null
 
-    if (flipPendingRef.current) {
-      flipPendingRef.current = false
+    if (animPendingRef.current) {
+      animPendingRef.current = false
       setDisplayedPhoto(photo)
-      setFlipPhase('enter')
-      const t = setTimeout(() => setFlipPhase('idle'), 220)
+      const t = setTimeout(() => {
+        setAnimating(false)
+        setOutgoingPhoto(null)
+      }, 320)
       return () => clearTimeout(t)
     } else {
-      // Direct prop change (edit saved, initial render) — no animation
+      // Direct prop change (edit saved, initial open) — no animation
       setDisplayedPhoto(photo)
-      setFlipPhase('idle')
+      setAnimating(false)
+      setOutgoingPhoto(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo.id])
@@ -107,7 +108,7 @@ export default function PhotoLightbox({
     if (playing && !hasNext) setPlaying(false)
   }, [playing, hasNext])
 
-  // Slideshow auto-advance — goes through navigate() so flip animation fires
+  // Slideshow auto-advance — routed through navigate() so the slide fires
   useEffect(() => {
     if (!playing) return
     const t = setInterval(() => {
@@ -124,8 +125,8 @@ export default function PhotoLightbox({
         if (zoom > 1) { setZoom(1); setPan({ x: 0, y: 0 }) }
         else onClose()
       }
-      if (e.key === "ArrowLeft" && hasPrev && zoom === 1) navigateRef.current('prev')
-      if (e.key === "ArrowRight" && hasNext && zoom === 1) navigateRef.current('next')
+      if (e.key === "ArrowLeft"  && hasPrev && zoom === 1) navigateRef.current('prev')
+      if (e.key === "ArrowRight" && hasNext  && zoom === 1) navigateRef.current('next')
       if (e.key === " ") { e.preventDefault(); setPlaying((p) => !p) }
     },
     [onClose, hasPrev, hasNext, editing, zoom]
@@ -184,15 +185,37 @@ export default function PhotoLightbox({
         >←</button>
       )}
 
-      {/* Main image */}
+      {/* Main image area — overflow-hidden clips the sliding photos */}
       <div
-        className="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden"
+        className="flex-1 relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{ touchAction: zoom > 1 ? "pinch-zoom" : "none" }}
       >
-        {/* Flip animation wrapper */}
-        <div className={flipClass} style={{ display: "flex", alignItems: "center", justifyContent: "center", maxHeight: "80vh", maxWidth: "100%" }}>
-          {/* Zoom / pan wrapper */}
+        {/* Outgoing photo slides out */}
+        {animating && outgoingPhoto && (
+          <div
+            className={`absolute inset-0 flex items-center justify-center p-4 md:p-12 pointer-events-none ${
+              animDir === 'next' ? 'lb-slide-out-left' : 'lb-slide-out-right'
+            }`}
+          >
+            <Image
+              src={outgoingPhoto.blobUrl}
+              alt={outgoingPhoto.caption || "Family photo"}
+              width={outgoingPhoto.width || 1200}
+              height={outgoingPhoto.height || 900}
+              className="object-contain max-h-[80vh] rounded-sm"
+              style={{ maxHeight: "80vh", width: "auto", height: "auto" }}
+              draggable={false}
+            />
+          </div>
+        )}
+
+        {/* Current photo — slides in during animation, static otherwise */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center p-4 md:p-12 ${
+            animating ? (animDir === 'next' ? 'lb-slide-in-right' : 'lb-slide-in-left') : ''
+          }`}
+        >
           <div
             className="relative max-h-full max-w-full select-none"
             style={{
@@ -282,7 +305,6 @@ export default function PhotoLightbox({
       >
         {!editing && (
           <>
-            {/* Slideshow toggle — space bar also works */}
             <button
               className={`w-9 h-9 flex items-center justify-center rounded-full text-white text-sm transition-colors ${
                 playing ? "bg-white/30" : "bg-white/10 hover:bg-white/20"
@@ -294,7 +316,6 @@ export default function PhotoLightbox({
               {playing ? "⏸" : "▶"}
             </button>
 
-            {/* Download — proxied so it triggers a real file download */}
             <a
               href={downloadUrl}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
@@ -305,7 +326,6 @@ export default function PhotoLightbox({
               ⬇
             </a>
 
-            {/* Open detail / share page */}
             <Link
               href={`/photo/${photo.id}`}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
@@ -316,7 +336,6 @@ export default function PhotoLightbox({
               🔗
             </Link>
 
-            {/* Edit — admin only */}
             {isAdmin && (
               <button
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -328,7 +347,6 @@ export default function PhotoLightbox({
               </button>
             )}
 
-            {/* Delete — admin only */}
             {isAdmin && (
               <button
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-red-600 text-white transition-colors"
@@ -342,7 +360,6 @@ export default function PhotoLightbox({
           </>
         )}
 
-        {/* Close */}
         <button
           className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
           onClick={onClose}

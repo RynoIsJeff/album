@@ -14,37 +14,44 @@ export default function ScrollspyYearSidebar({ years }: Props) {
   useEffect(() => {
     if (years.length === 0) return
 
-    let observer: IntersectionObserver
+    const observedIds = new Set<string>()
+    let io: IntersectionObserver | null = null
 
-    // Wait one tick so the DOM sections rendered by TimelineGroup are in place
-    const tid = setTimeout(() => {
-      const sections = years
-        .map(({ takenYear }) => document.getElementById(`year-${takenYear}`))
-        .filter((el): el is HTMLElement => el !== null)
+    function attachNewSections() {
+      for (const { takenYear } of years) {
+        const id = `year-${takenYear}`
+        if (observedIds.has(id)) continue
+        const el = document.getElementById(id)
+        if (el) {
+          observedIds.add(id)
+          io?.observe(el)
+        }
+      }
+    }
 
-      if (sections.length === 0) return
+    io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting)
+        if (visible.length === 0) return
+        const topmost = visible.sort(
+          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+        )[0]
+        setActiveYear(parseInt(topmost.target.id.replace("year-", ""), 10))
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+    )
 
-      observer = new IntersectionObserver(
-        (entries) => {
-          const visible = entries.filter((e) => e.isIntersecting)
-          if (visible.length === 0) return
-          // Pick the topmost visible section
-          const topmost = visible.sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
-          )[0]
-          const year = parseInt(topmost.target.id.replace("year-", ""), 10)
-          setActiveYear(year)
-        },
-        // Detect sections that enter the middle band of the viewport
-        { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
-      )
+    // Initial attach after first render
+    const tid = setTimeout(attachNewSections, 0)
 
-      sections.forEach((el) => observer.observe(el))
-    }, 0)
+    // Re-attach whenever infinite scroll adds new year sections to the DOM
+    const mo = new MutationObserver(attachNewSections)
+    mo.observe(document.body, { childList: true, subtree: true })
 
     return () => {
       clearTimeout(tid)
-      observer?.disconnect()
+      io?.disconnect()
+      mo.disconnect()
     }
   }, [years])
 
