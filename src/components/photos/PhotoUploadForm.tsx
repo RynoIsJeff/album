@@ -63,7 +63,6 @@ export default function PhotoUploadForm() {
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [metas, setMetas] = useState<Record<string, MetaState>>({})
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([])
-  // Names typed this session but not yet saved — shared across all upload cards
   const [sessionPeople, setSessionPeople] = useState<string[]>([])
 
   const fetchAlbums = useCallback(async () => {
@@ -71,7 +70,6 @@ export default function PhotoUploadForm() {
     if (res.ok) setAlbums(await res.json())
   }, [])
 
-  // Load albums immediately so the dropdown is ready before any file is dropped
   useEffect(() => { fetchAlbums() }, [fetchAlbums])
 
   const onDrop = useCallback(
@@ -97,7 +95,6 @@ export default function PhotoUploadForm() {
       })
       setMetas((prev) => ({ ...prev, ...initMeta }))
 
-      // Upload each file
       for (const uf of newFiles) {
         setFiles((prev) =>
           prev.map((f) => (f.file.name === uf.file.name ? { ...f, status: "uploading" } : f))
@@ -147,7 +144,6 @@ export default function PhotoUploadForm() {
     const meta = metas[fileName]
     if (!name || meta.peopleNames.includes(name)) return
     updateMeta(fileName, { peopleNames: [...meta.peopleNames, name], peopleInput: "" })
-    // Share this name with all other upload cards immediately
     setSessionPeople((prev) =>
       prev.some((n) => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name]
     )
@@ -159,18 +155,36 @@ export default function PhotoUploadForm() {
     })
   }
 
+  // Copy album + date from one card to all other unsaved cards
+  const applyToAll = (sourceFileName: string) => {
+    const src = metas[sourceFileName]
+    setMetas((prev) => {
+      const next = { ...prev }
+      for (const [name, meta] of Object.entries(next)) {
+        if (name !== sourceFileName && !meta.saved) {
+          next[name] = {
+            ...meta,
+            albumName: src.albumName,
+            dateMode: src.dateMode,
+            takenAt: src.takenAt,
+            takenYear: src.takenYear,
+          }
+        }
+      }
+      return next
+    })
+  }
+
   const savePhoto = async (uf: UploadedFile) => {
     if (uf.status !== "done") return
     const meta = metas[uf.file.name]
 
-    // Auto-flush: if the user typed a name but didn't press Enter, include it anyway
     const pendingInput = meta.peopleInput.trim()
     const allPeopleNames = pendingInput && !meta.peopleNames.includes(pendingInput)
       ? [...meta.peopleNames, pendingInput]
       : meta.peopleNames
 
     try {
-      // Find or create people
       const peopleIds: string[] = []
       for (const name of allPeopleNames) {
         const res = await fetch("/api/people", {
@@ -183,7 +197,6 @@ export default function PhotoUploadForm() {
         peopleIds.push(person.id)
       }
 
-      // Find existing album (case-insensitive) or create a new one
       let albumId: string | null = null
       const trimmedAlbumName = meta.albumName.trim()
       if (trimmedAlbumName) {
@@ -201,7 +214,6 @@ export default function PhotoUploadForm() {
           if (!res.ok) throw new Error("Failed to create album")
           const album = await res.json()
           albumId = album.id
-          // Add to local list so the next photo in this session can find it
           setAlbums((prev) => [...prev, { id: album.id, name: album.name }])
         }
       }
@@ -212,8 +224,6 @@ export default function PhotoUploadForm() {
           ? (meta.takenYear ? parseInt(meta.takenYear) : null)
           : (meta.takenAt ? new Date(meta.takenAt).getFullYear() : null)
 
-      // Capture click timestamp as position — assigned here (before any await) so it
-      // reflects the exact moment Save was clicked, regardless of network timing.
       const albumPosition = albumId ? Date.now() : null
 
       const res = await fetch("/api/photos", {
@@ -247,26 +257,40 @@ export default function PhotoUploadForm() {
     }
   }
 
-  const doneFiles = files.filter((f) => f.status === "done")
-  const pendingFiles = files.filter((f) => f.status !== "done" || !metas[f.file.name]?.saved)
+  const unsavedCount = files.filter(
+    (f) => f.status === "done" && !metas[f.file.name]?.saved
+  ).length
 
   return (
-    <div className="space-y-6">
-      {/* Drop zone */}
+    <div className="space-y-4">
+      {/* Drop zone / tap target */}
       <div
         {...getRootProps()}
-        className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors"
+        className="border-2 border-dashed rounded-2xl cursor-pointer transition-colors active:scale-[0.99]"
         style={{
           borderColor: isDragActive ? "#78716c" : "var(--border)",
           background: isDragActive ? "var(--sepia-light)" : "white",
+          padding: files.length === 0 ? "2.5rem 1.5rem" : "1rem 1.5rem",
         }}
       >
         <input {...getInputProps()} />
-        <p className="text-3xl mb-3">📷</p>
-        <p className="font-medium">Drag photos here, or click to browse</p>
-        <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-          JPEG, PNG, WebP, TIFF — multiple files supported
-        </p>
+        {files.length === 0 ? (
+          <div className="text-center">
+            <p className="text-4xl mb-3">📷</p>
+            <p className="font-medium text-base">
+              <span className="hidden md:inline">Drag photos here, or </span>
+              <span className="underline underline-offset-2">tap to select photos</span>
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+              JPEG, PNG, WebP, TIFF — multiple files supported
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--muted)" }}>
+            <span>📷</span>
+            <span>Add more photos</span>
+          </div>
+        )}
       </div>
 
       {/* Upload queue */}
@@ -274,63 +298,99 @@ export default function PhotoUploadForm() {
         const meta = metas[uf.file.name]
         if (!meta) return null
         const saved = meta.saved
+        const otherUnsavedCount = files.filter(
+          (f) => f.file.name !== uf.file.name && f.status === "done" && !metas[f.file.name]?.saved
+        ).length
 
         return (
           <div
             key={uf.file.name}
-            className="rounded-xl border p-4 space-y-4"
-            style={{ borderColor: saved ? "#d1fae5" : "var(--border)", background: saved ? "#f0fdf4" : "white" }}
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              borderColor: saved ? "#86efac" : "var(--border)",
+              background: saved ? "#f0fdf4" : "white",
+            }}
           >
-            <div className="flex items-start gap-4">
-              {/* Thumbnail preview */}
+            {/* Photo preview header */}
+            <div className="relative">
               <img
                 src={uf.previewUrl}
                 alt=""
-                className="w-20 h-20 object-cover rounded-lg shrink-0"
+                className="w-full object-cover"
+                style={{ maxHeight: "220px", objectPosition: "center top" }}
               />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{uf.file.name}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+
+              {/* Status overlay */}
+              {uf.status === "uploading" && (
+                <div className="absolute inset-0 flex items-center justify-center"
+                  style={{ background: "rgba(0,0,0,0.45)" }}>
+                  <div className="text-white text-center">
+                    <div className="text-2xl mb-1 animate-spin">⟳</div>
+                    <p className="text-sm font-medium">Uploading…</p>
+                  </div>
+                </div>
+              )}
+              {uf.status === "error" && (
+                <div className="absolute inset-0 flex items-center justify-center"
+                  style={{ background: "rgba(220,38,38,0.75)" }}>
+                  <p className="text-white text-sm font-medium px-4 text-center">{uf.error}</p>
+                </div>
+              )}
+              {saved && (
+                <div className="absolute inset-0 flex items-center justify-center"
+                  style={{ background: "rgba(21,128,61,0.6)" }}>
+                  <p className="text-white text-lg font-semibold">✓ Saved</p>
+                </div>
+              )}
+
+              {/* File name chip */}
+              <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end gap-2 pointer-events-none">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full truncate max-w-[70%]"
+                  style={{ background: "rgba(0,0,0,0.55)", color: "white" }}
+                >
+                  {uf.file.name}
+                </span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full shrink-0"
+                  style={{ background: "rgba(0,0,0,0.55)", color: "white" }}
+                >
                   {(uf.file.size / 1024 / 1024).toFixed(1)} MB
-                </p>
-                {uf.status === "uploading" && (
-                  <p className="text-xs mt-1 text-amber-600">Uploading…</p>
-                )}
-                {uf.status === "error" && (
-                  <p className="text-xs mt-1 text-red-600">{uf.error}</p>
-                )}
-                {saved && (
-                  <p className="text-xs mt-1 text-green-700 font-medium">✓ Saved to album</p>
-                )}
+                </span>
               </div>
             </div>
 
+            {/* Form fields */}
             {uf.status === "done" && !saved && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 space-y-3">
+                {/* Date + Album — stack on mobile, side by side on sm+ */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Date */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-medium">Date taken</label>
-                      <div className="flex rounded border text-xs overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                        Date taken
+                      </label>
+                      <div className="flex rounded-lg border overflow-hidden text-xs" style={{ borderColor: "var(--border)" }}>
                         <button
                           type="button"
                           onClick={() => updateMeta(uf.file.name, { dateMode: "full" })}
-                          className="px-2 py-0.5 transition-colors"
+                          className="px-2.5 py-1 transition-colors"
                           style={meta.dateMode === "full"
                             ? { background: "var(--foreground)", color: "var(--background)" }
                             : { color: "var(--muted)" }}
                         >
-                          Full
+                          Full date
                         </button>
                         <button
                           type="button"
                           onClick={() => updateMeta(uf.file.name, { dateMode: "year" })}
-                          className="px-2 py-0.5 transition-colors"
+                          className="px-2.5 py-1 transition-colors"
                           style={meta.dateMode === "year"
                             ? { background: "var(--foreground)", color: "var(--background)" }
                             : { color: "var(--muted)" }}
                         >
-                          Year
+                          Year only
                         </button>
                       </div>
                     </div>
@@ -339,7 +399,7 @@ export default function PhotoUploadForm() {
                         type="date"
                         value={meta.takenAt}
                         onChange={(e) => updateMeta(uf.file.name, { takenAt: e.target.value })}
-                        className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                        className="w-full px-3 py-3 text-sm rounded-xl border outline-none focus:border-stone-400"
                         style={{ borderColor: "var(--border)" }}
                       />
                     ) : (
@@ -350,58 +410,75 @@ export default function PhotoUploadForm() {
                         placeholder="e.g. 1975"
                         min={1800}
                         max={new Date().getFullYear()}
-                        className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                        className="w-full px-3 py-3 text-sm rounded-xl border outline-none focus:border-stone-400"
                         style={{ borderColor: "var(--border)" }}
                       />
                     )}
                   </div>
+
+                  {/* Album */}
                   <div>
-                    <label className="text-xs font-medium block mb-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--muted)" }}>
                       Album
-                      {albums.length > 0 && (
-                        <span className="font-normal ml-1" style={{ color: "var(--muted)" }}>
-                          — pick existing or type new
-                        </span>
-                      )}
                     </label>
                     <input
                       type="text"
                       value={meta.albumName}
                       onChange={(e) => updateMeta(uf.file.name, { albumName: e.target.value })}
-                      placeholder={albums.length > 0 ? "Search albums…" : "e.g. 1970s Holidays"}
+                      placeholder={albums.length > 0 ? "Search or create…" : "e.g. 1970s Holidays"}
                       list={`albums-${uf.file.name}`}
-                      className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                      className="w-full px-3 py-3 text-sm rounded-xl border outline-none focus:border-stone-400"
                       style={{ borderColor: "var(--border)" }}
                     />
                     <datalist id={`albums-${uf.file.name}`}>
                       {albums.map((a) => <option key={a.id} value={a.name} />)}
                     </datalist>
-                    {/* Show matched existing album as a hint */}
-                    {meta.albumName.trim() && albums.some(
-                      (a) => a.name.toLowerCase() === meta.albumName.trim().toLowerCase()
-                    ) && (
-                      <p className="text-xs mt-1 text-green-700">✓ Will add to existing album</p>
-                    )}
-                    {meta.albumName.trim() && !albums.some(
-                      (a) => a.name.toLowerCase() === meta.albumName.trim().toLowerCase()
-                    ) && (
-                      <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>+ Will create new album</p>
+                    {meta.albumName.trim() && (
+                      <p className="text-xs mt-1" style={{
+                        color: albums.some(a => a.name.toLowerCase() === meta.albumName.trim().toLowerCase())
+                          ? "#15803d"
+                          : "var(--muted)"
+                      }}>
+                        {albums.some(a => a.name.toLowerCase() === meta.albumName.trim().toLowerCase())
+                          ? "✓ Adds to existing album"
+                          : "+ Creates new album"}
+                      </p>
                     )}
                   </div>
                 </div>
+
+                {/* Apply to all — only show if there are other unsaved cards with something to copy */}
+                {otherUnsavedCount > 0 && (meta.albumName.trim() || meta.takenAt || meta.takenYear) && (
+                  <button
+                    type="button"
+                    onClick={() => applyToAll(uf.file.name)}
+                    className="w-full py-2.5 text-sm rounded-xl border transition-colors active:scale-[0.99]"
+                    style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                  >
+                    Apply album &amp; date to all {otherUnsavedCount} remaining photos
+                  </button>
+                )}
+
+                {/* Caption */}
                 <div>
-                  <label className="text-xs font-medium block mb-1">Caption</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--muted)" }}>
+                    Caption
+                  </label>
                   <textarea
                     value={meta.caption}
                     onChange={(e) => updateMeta(uf.file.name, { caption: e.target.value })}
                     placeholder="What's happening in this photo?"
                     rows={2}
-                    className="w-full px-3 py-2 text-sm rounded-lg border outline-none resize-y"
+                    className="w-full px-3 py-3 text-sm rounded-xl border outline-none resize-y focus:border-stone-400"
                     style={{ borderColor: "var(--border)" }}
                   />
                 </div>
+
+                {/* People */}
                 <div>
-                  <label className="text-xs font-medium block mb-1">People</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--muted)" }}>
+                    People
+                  </label>
                   <PeopleTagInput
                     peopleInput={meta.peopleInput}
                     onChange={(val) => updateMeta(uf.file.name, { peopleInput: val })}
@@ -411,18 +488,18 @@ export default function PhotoUploadForm() {
                     variant="light"
                   />
                   {meta.peopleNames.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       {meta.peopleNames.map((name) => (
                         <span
                           key={name}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm"
                           style={{ background: "var(--sepia-light)", color: "var(--foreground)" }}
                         >
                           {name}
                           <button
                             type="button"
                             onClick={() => removePerson(uf.file.name, name)}
-                            className="text-stone-400 hover:text-stone-600 leading-none"
+                            className="text-stone-400 hover:text-stone-600 leading-none text-base"
                           >
                             ×
                           </button>
@@ -431,22 +508,31 @@ export default function PhotoUploadForm() {
                     </div>
                   )}
                 </div>
+
+                {/* Save button */}
                 <button
                   type="button"
                   onClick={() => savePhoto(uf)}
-                  className="w-full py-2.5 rounded-lg text-sm font-medium transition-colors"
+                  className="w-full py-4 rounded-xl text-base font-semibold transition-colors active:scale-[0.99]"
                   style={{ background: "var(--foreground)", color: "var(--background)" }}
                 >
                   Save to Album
                 </button>
                 <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
-                  Save photos in the order you want them to appear when sorted by upload order
+                  Save photos in the order you want them to appear
                 </p>
               </div>
             )}
           </div>
         )
       })}
+
+      {/* Summary bar when multiple are ready */}
+      {unsavedCount > 1 && (
+        <p className="text-sm text-center py-2" style={{ color: "var(--muted)" }}>
+          {unsavedCount} photos ready to save — fill in details above and tap Save on each
+        </p>
+      )}
     </div>
   )
 }
